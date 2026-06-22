@@ -246,22 +246,42 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
       const unsubscribeCustomers = onSnapshot(collection(db, "users", user.uid, "customers"), (snapshot) => {
         const list: Customer[] = [];
         snapshot.forEach((d) => {
-          list.push({ id: d.id, ...d.data() } as Customer);
+          list.push({ 
+            id: d.id, 
+            ledger: [], 
+            styleSelections: {}, 
+            measurements: {}, 
+            activeTemplateId: "kameez_shalwar",
+            hasPendingDeliveries: false,
+            hasOutstandingDebt: false,
+            trialScheduled: false,
+            ...d.data() 
+          } as Customer);
         });
         setCustomers(list.length > 0 ? list : defaultCustomers);
         if (list.length > 0 && !selectedCustomerId) {
           setSelectedCustomerId(list[0].id);
         }
       }, (err) => {
-        console.error("Firestore error:", err);
+        console.error("Firestore customer error:", err);
+        setCustomers(defaultCustomers);
       });
 
       const unsubscribeStaff = onSnapshot(collection(db, "users", user.uid, "staff_directory"), (snapshot) => {
         const list: StaffMember[] = [];
         snapshot.forEach((d) => {
-          list.push({ id: d.id, ...d.data() } as StaffMember);
+          list.push({ 
+            id: d.id, 
+            completedTasks: [], 
+            advancesPaid: 0, 
+            pieceRate: 0, 
+            ...d.data() 
+          } as StaffMember);
         });
         setStaff(list.length > 0 ? list : defaultStaff);
+      }, (err) => {
+        console.error("Firestore staff error:", err);
+        setStaff(defaultStaff);
       });
 
       return () => {
@@ -1003,7 +1023,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
           {/* Quick user badge info at bottom of rail */}
           <div className="flex flex-col items-center gap-1 pt-4 border-t border-[#E5DECE] w-full text-center">
             <div className="w-8 h-8 rounded-full bg-[#8B6B3F]/10 text-[#8B6B3F] font-bold text-xs flex items-center justify-center border border-[#8B6B3F]/20">
-              {user ? user.displayName?.slice(0, 2).toUpperCase() : "A"}
+              {user ? (user.displayName || user.email || "Owner").slice(0, 2).toUpperCase() : "A"}
             </div>
             <span className="text-[8px] font-mono text-zinc-400">Offline On</span>
           </div>
@@ -1333,7 +1353,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
 
                       {/* Display template specific fields */}
                       <div className="space-y-2">
-                        {SIZING_TEMPLATES.find(t => t.id === activeCustomer.activeTemplateId)?.fields.map((field) => (
+                        {SIZING_TEMPLATES.find(t => t.id === activeCustomer.activeTemplateId)?.fields?.map((field) => (
                           <div key={field.name} className="flex justify-between items-center text-xs">
                             <span className="font-sans font-medium text-zinc-500">
                               {field.label}

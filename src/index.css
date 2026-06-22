@@ -36,17 +36,14 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Custom scrollbar for brand consistency */
+/* Hide scrollbar completely but preserve scrolling */
 ::-webkit-scrollbar {
-  width: 8px;
+  display: none;
+  width: 0;
+  height: 0;
 }
-::-webkit-scrollbar-track {
-  background: #F6F4EB;
-}
-::-webkit-scrollbar-thumb {
-  background: #8B6B3F;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #3D3A37;
+
+html, body, #root, * {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
