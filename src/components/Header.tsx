@@ -86,39 +86,11 @@ export default function Header({ activeSection, onNavigate, onInstallClick, onLa
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-4">
-            <button
-              id="header-cta-launch-app"
-              onClick={onLaunchApp}
-              className="px-4 py-2 bg-[#8B6B3F] hover:bg-[#1B1A18] text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-extrabold cursor-pointer hover:shadow-md transition-all duration-305"
-            >
-              Launch Web App
-            </button>
-            <button
-              id="header-cta-install"
-              onClick={onInstallClick}
-              className="px-4 py-2 border-2 border-brand-gold text-brand-gold hover:bg-brand-gold hover:text-brand-cream transition-all duration-300 rounded font-sans text-xs tracking-wider uppercase font-bold cursor-pointer hover:shadow-sm"
-            >
-              Download APK
-            </button>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-brand-gold font-bold">❖ Bespoke Workspace</span>
           </div>
 
           {/* Mobile Menu Button */}
           <div className="flex md:hidden items-center gap-2">
-            <button
-              onClick={onLaunchApp}
-              className="px-2.5 py-1 bg-[#8B6B3F] text-white rounded text-[10px] font-mono tracking-wider font-bold uppercase"
-              title="Launch Desktop App"
-            >
-              Launch App
-            </button>
-            <button
-              id="header-cta-install-mobile-shortcut"
-              onClick={onInstallClick}
-              className="p-2 border border-brand-gold/50 rounded text-brand-gold hover:bg-brand-gold/10"
-              title="Download APK"
-            >
-              <Download className="w-4 h-4" />
-            </button>
             <button
               id="mobile-menu-toggle"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -149,26 +121,10 @@ export default function Header({ activeSection, onNavigate, onInstallClick, onLa
               </button>
             ))}
           </div>
-          <div className="pt-4 border-t border-brand-gold/20 flex flex-col gap-3">
-            <button
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                onLaunchApp();
-              }}
-              className="w-full text-center px-4 py-3 bg-[#8B6B3F] text-white hover:bg-brand-charcoal transition-all rounded font-sans text-xs tracking-wider uppercase font-bold"
-            >
-              Launch Responsive Desktop Web App
-            </button>
-            <button
-              id="mobile-drawer-cta-install"
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                onInstallClick();
-              }}
-              className="w-full text-center px-4 py-3 border border-brand-gold/50 text-brand-gold hover:bg-brand-gold-light/10 transition-all rounded font-sans text-xs tracking-wider uppercase font-bold"
-            >
-              Download Android App (APK)
-            </button>
+          <div className="pt-4 border-t border-brand-gold/20 text-center">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-brand-gold font-bold">
+              ❖ TailorShopManager OS
+            </span>
           </div>
         </div>
       )}

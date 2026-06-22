@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { ShieldCheck, HardDrive, KeyRound, EyeOff, Check, HeartHandshake, Eye } from "lucide-react";
 
-export default function PrivacyPolicy() {
+interface PrivacyPolicyProps {
+  onOpenFullPolicy?: () => void;
+}
+
+export default function PrivacyPolicy({ onOpenFullPolicy }: PrivacyPolicyProps) {
   const [activeCheck, setActiveCheck] = useState<"offline" | "encryption" | "ads">("offline");
 
   const corePolicies = [
@@ -148,6 +152,18 @@ export default function PrivacyPolicy() {
               <div className="mt-5 text-[10px] text-brand-slate text-center leading-relaxed">
                 🛡 TailorShopManager operates under complete sandboxed isolation. Your measurements data is yours because nobody else deserves your trade secrets.
               </div>
+
+              {onOpenFullPolicy && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={onOpenFullPolicy}
+                    className="w-full py-3 bg-[#8B6B3F] hover:bg-brand-charcoal text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer shadow hover:shadow-md border-0"
+                  >
+                    <Eye className="w-4 h-4 text-brand-gold animate-pulse" />
+                    <span>Open Full Dedicated Privacy Page</span>
+                  </button>
+                </div>
+              )}
 
             </div>
           </div>

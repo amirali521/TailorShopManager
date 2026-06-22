@@ -13,9 +13,10 @@ import PrivacyPolicy from "./components/PrivacyPolicy";
 import ContactUs from "./components/ContactUs";
 import Footer from "./components/Footer";
 import DesktopApp from "./components/DesktopApp";
+import PrivacyPage from "./components/PrivacyPage";
 
 export default function App() {
-  const [viewMode, setViewMode] = useState<"landing" | "desktopApp">("landing");
+  const [viewMode, setViewMode] = useState<"landing" | "desktopApp" | "privacyPage">("landing");
   const [activeSection, setActiveSection] = useState("home");
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -93,6 +94,10 @@ export default function App() {
 
   if (viewMode === "desktopApp") {
     return <DesktopApp onBackToLanding={() => setViewMode("landing")} />;
+  }
+
+  if (viewMode === "privacyPage") {
+    return <PrivacyPage onBack={() => setViewMode("landing")} />;
   }
 
   return (
@@ -213,7 +218,7 @@ export default function App() {
         <AboutUs />
 
         {/* 5. PRIVACY POLICY SECTION */}
-        <PrivacyPolicy />
+        <PrivacyPolicy onOpenFullPolicy={() => setViewMode("privacyPage")} />
 
         {/* 6. CONTACT US SECTION */}
         <ContactUs />

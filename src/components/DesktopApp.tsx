@@ -3,7 +3,8 @@ import {
   Scissors, Search, SlidersHorizontal, Plus, User, Phone, MapPin, 
   Ruler, CreditCard, Users, Settings, Database, ArrowLeft, Check, 
   Trash2, DollarSign, Share2, Copy, Printer, CheckCircle, AlertTriangle, 
-  HelpCircle, Sparkles, Send, FileText, Download, Briefcase, RefreshCw, LogIn, LogOut
+  HelpCircle, Sparkles, Send, FileText, Download, Briefcase, RefreshCw, LogIn, LogOut,
+  Lock, Shield
 } from "lucide-react";
 import { 
   collection, doc, getDocs, setDoc, updateDoc, deleteDoc, 
@@ -14,6 +15,7 @@ import {
 } from "firebase/auth";
 import { db, auth, googleProvider } from "../lib/firebase";
 import { SIZING_TEMPLATES } from "../types";
+import PrivacyPage from "./PrivacyPage";
 
 // Customer Data Structure
 interface Customer {
@@ -70,6 +72,8 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
   // Auth State
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showPrivacyPage, setShowPrivacyPage] = useState(false);
 
   // Core Data State
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -755,6 +759,113 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
       triggerToast("Local storage backup export blocked.");
     }
   };
+
+  if (showPrivacyPage) {
+    return <PrivacyPage onBack={() => setShowPrivacyPage(false)} />;
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FDFBF7] flex flex-col items-center justify-center font-sans p-6">
+        <div className="w-12 h-12 border-4 border-[#8B6B3F] border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="font-mono text-xs uppercase tracking-widest text-[#8B6B3F] animate-pulse">
+          Unlocking Secure Workspace...
+        </p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#F5F2EB] flex flex-col items-center justify-center font-sans p-4 relative overflow-hidden">
+        {/* Decorative thread lines */}
+        <div className="absolute inset-0 opacity-5 pointer-events-none select-none">
+          <svg width="100%" height="100%">
+            <pattern id="diag" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 0 40 L 40 0 M 0 0 L 40 40" fill="none" stroke="#1B1A18" strokeWidth="1" />
+            </pattern>
+            <rect width="100%" height="100%" fill="url(#diag)" />
+          </svg>
+        </div>
+
+        <div className="w-full max-w-lg bg-[#FDFBF7] border border-[#E5DECE] p-8 rounded-xl shadow-xl space-y-6 relative z-10 text-center">
+          <div className="flex flex-col items-center">
+            <div className="w-16 h-16 bg-[#8B6B3F]/10 text-[#8B6B3F] rounded-full flex items-center justify-center mb-4 border border-[#8B6B3F]/20">
+              <Lock className="w-8 h-8" />
+            </div>
+            
+            <h1 className="font-serif text-2xl sm:text-3xl font-extrabold text-[#1B1A18]">
+              Workspace Locked
+            </h1>
+            <p className="text-[10px] font-mono tracking-widest uppercase text-[#8B6B3F] mt-1 font-bold">
+              Secure Cloud Sync Needed
+            </p>
+          </div>
+
+          <p className="text-xs text-zinc-600 leading-relaxed max-w-sm mx-auto">
+            To conform to patron confidentiality standard directives and secure real-time cross-device cloud synchronization, this workshop register requires authentication before loading directory databases.
+          </p>
+
+          {/* Privacy Verification Requirement Checkbox container */}
+          <div className="bg-[#F5F2EB] border border-[#E5DECE] p-4 rounded-lg text-left space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer select-none text-xs text-zinc-700">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-0.5 rounded border-[#C8B195] text-[#8B6B3F] focus:ring-[#8B6B3F]"
+              />
+              <span className="leading-tight">
+                I declare that I have read, understood, and accept the active{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowPrivacyPage(true)}
+                  className="font-bold underline text-[#8B6B3F] hover:text-[#1B1A18] inline bg-transparent p-0 border-0 cursor-pointer"
+                >
+                  Privacy Policy & Terms of Service
+                </button>
+                . I grant permission to sync my client records securely to my designated Google UID directory.
+              </span>
+            </label>
+          </div>
+
+          {/* Connect Google Sync action button */}
+          <div className="space-y-3 pt-2">
+            <button
+              onClick={() => {
+                if (!termsAccepted) {
+                  triggerToast("Please accept the Terms and Privacy Policy first!");
+                  return;
+                }
+                handleGoogleSignIn();
+              }}
+              className={`w-full py-3.5 flex items-center justify-center gap-3 font-sans text-xs tracking-wider uppercase font-bold rounded-lg transition-all shadow-md ${
+                termsAccepted
+                  ? "bg-[#8B6B3F] hover:bg-[#1B1A18] text-[#FCFAF2] cursor-pointer hover:-translate-y-0.5"
+                  : "bg-zinc-200 text-zinc-400 cursor-not-allowed opacity-75"
+              }`}
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Connect Google Cloud Sync</span>
+            </button>
+
+            <button
+              onClick={onBackToLanding}
+              className="w-full py-2.5 bg-transparent hover:bg-zinc-100 text-[#8B6B3F] hover:text-[#1B1A18] font-mono text-[10px] tracking-wide uppercase font-bold cursor-pointer rounded transition-all border-0"
+            >
+              ← Back to Landing Page
+            </button>
+          </div>
+
+          {/* Small footer */}
+          <div className="pt-4 border-t border-zinc-100 flex justify-between items-center text-[9px] text-zinc-400 font-mono">
+            <span>ISOLATED SYSTEM NODE</span>
+            <span className="text-[#8B6B3F] font-bold">100% PRIVATE TAILORING OS</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#1B1A18] font-sans flex flex-col antialiased selection:bg-[#8B6B3F] selection:text-white relative">
