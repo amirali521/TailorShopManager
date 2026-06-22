@@ -6,11 +6,11 @@ interface FooterProps {
 
 export default function Footer({ onNavigate }: FooterProps) {
   const links = [
-    { label: "Home", id: "home" },
-    { label: "Features", id: "features" },
-    { label: "About Us", id: "about" },
-    { label: "Privacy Policy", id: "privacy" },
-    { label: "Contact Us", id: "contact" }
+    { label: "Home", id: "home", isExternal: false },
+    { label: "Features", id: "features", isExternal: false },
+    { label: "About Us", id: "about", isExternal: false },
+    { label: "Privacy Policy", id: "/privacy.html", isExternal: true },
+    { label: "Contact Us", id: "contact", isExternal: false }
   ];
 
   return (
@@ -25,16 +25,16 @@ export default function Footer({ onNavigate }: FooterProps) {
           {/* Rip Cutout Circles on left/right margins */}
           <div className="absolute -left-4 -top-3 w-6 h-6 bg-[#FCFAF2] rounded-full border border-brand-gold/20"></div>
           <div className="absolute -right-4 -top-3 w-6 h-6 bg-[#FCFAF2] rounded-full border border-brand-gold/20"></div>
-
+ 
           {/* Centered Scissors Icon with tear guide label */}
           <div className="absolute -top-3 px-3 bg-brand-eggshell text-brand-gold flex items-center gap-1.5 text-[10px] font-mono leading-none tracking-widest uppercase">
             <Scissors className="w-3.5 h-3.5 text-brand-gold rotate-90" />
             <span>TEAR HERE TO SHARE TICKET</span>
           </div>
-
+ 
         </div>
       </div>
-
+ 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8 border-b border-brand-gold/15 pb-8">
           
@@ -52,17 +52,27 @@ export default function Footer({ onNavigate }: FooterProps) {
               </span>
             </div>
           </div>
-
+ 
           {/* Navigation Links Replica */}
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-2">
             {links.map((link) => (
-              <button
-                key={link.id}
-                onClick={() => onNavigate(link.id)}
-                className="text-xs font-mono font-bold uppercase tracking-wider text-brand-slate hover:text-brand-gold transition duration-200 cursor-pointer"
-              >
-                {link.label}
-              </button>
+              link.isExternal ? (
+                <a
+                  key={link.id}
+                  href={link.id}
+                  className="text-xs font-mono font-bold uppercase tracking-wider text-brand-slate hover:text-brand-gold transition duration-200 cursor-pointer"
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <button
+                  key={link.id}
+                  onClick={() => onNavigate(link.id)}
+                  className="text-xs font-mono font-bold uppercase tracking-wider text-brand-slate hover:text-brand-gold transition duration-200 cursor-pointer"
+                >
+                  {link.label}
+                </button>
+              )
             ))}
           </div>
 

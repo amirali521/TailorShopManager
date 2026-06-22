@@ -153,17 +153,15 @@ export default function PrivacyPolicy({ onOpenFullPolicy }: PrivacyPolicyProps) 
                 🛡 TailorShopManager operates under complete sandboxed isolation. Your measurements data is yours because nobody else deserves your trade secrets.
               </div>
 
-              {onOpenFullPolicy && (
-                <div className="mt-6 text-center">
-                  <button
-                    onClick={onOpenFullPolicy}
-                    className="w-full py-3 bg-[#8B6B3F] hover:bg-brand-charcoal text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer shadow hover:shadow-md border-0"
-                  >
-                    <Eye className="w-4 h-4 text-brand-gold animate-pulse" />
-                    <span>Open Full Dedicated Privacy Page</span>
-                  </button>
-                </div>
-              )}
+              <div className="mt-6 text-center">
+                <a
+                  href="/privacy.html"
+                  className="w-full py-3 bg-[#8B6B3F] hover:bg-brand-charcoal text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer shadow hover:shadow-md border-0 decoration-none"
+                >
+                  <Eye className="w-4 h-4 text-brand-gold animate-pulse" />
+                  <span>Open Full Dedicated Privacy Page</span>
+                </a>
+              </div>
 
             </div>
           </div>
