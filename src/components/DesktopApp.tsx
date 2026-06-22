@@ -1861,6 +1861,111 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
 
               </div>
 
+              {/* SYSTEM ARCHITECTURE & SYNCHRONIZATION BLUEPRINT */}
+              <div className="bg-white border border-[#E5DECE] p-6 rounded-2xl relative shadow-xs text-left space-y-6">
+                <div className="flex items-center gap-3 border-b border-zinc-100 pb-4">
+                  <div className="p-2 bg-[#8B6B3F]/10 rounded text-[#8B6B3F]">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-black text-lg text-[#1B1A18]">
+                      Architecture &amp; Synchronization Blueprint
+                    </h3>
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                      Offline-First Clean Registry • 100% Confidential
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-zinc-600 leading-relaxed font-sans">
+                  The application is structured on a robust <strong>Offline-First Clean Architecture</strong> matching our Jetpack Compose Android client design. It utilizes local registers for instantaneous offline interactions, Google Firebase for authorized cloud persistence, and a reactive state engine.
+                </p>
+
+                <div className="space-y-4">
+                  {/* Subsection 1 */}
+                  <div className="space-y-1.5 p-3.5 bg-[#FDFBF7] border border-[#E5DECE] rounded-lg">
+                    <h4 className="font-serif font-bold text-xs text-[#1B1A18] flex items-center gap-2">
+                      <span className="w-4 h-4 rounded bg-[#8B6B3F]/10 text-[#8B6B3F] text-[9px] font-mono flex items-center justify-center font-bold">1</span>
+                      User Session &amp; Authentication Routing (AuthManager)
+                    </h4>
+                    <p className="text-[11px] text-zinc-600 leading-relaxed">
+                      Authentication access is split-routed to ensure maximum data privacy and structural security:
+                    </p>
+                    <ul className="list-disc pl-4 text-[10px] text-zinc-600 space-y-1 mt-1">
+                      <li>
+                        <strong>Primary Shop Owners:</strong> Authenticates securely via Google Identity / OIDC tokens directly with Firebase Authentication to unlock root folder access under <code className="bg-[#F5F2EB] px-1 py-0.5 rounded text-[9px] font-mono text-[#8B6B3F]">users/&lbrace;userId&rbrace;/</code>.
+                      </li>
+                      <li>
+                        <strong>Sub-Users / Collaborative Personnel:</strong> Authenticate using shop-defined helper IDs. An anonymous credential-bridge connects background read/write transactions into the shared Firestore paths under strict validation rules.
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Subsection 2 */}
+                  <div className="space-y-1.5 p-3.5 bg-[#FDFBF7] border border-[#E5DECE] rounded-lg">
+                    <h4 className="font-serif font-bold text-xs text-[#1B1A18] flex items-center gap-2">
+                      <span className="w-4 h-4 rounded bg-[#8B6B3F]/10 text-[#8B6B3F] text-[9px] font-mono flex items-center justify-center font-bold">2</span>
+                      High-Performance Local Cache Layer (Room Schema)
+                    </h4>
+                    <p className="text-[11px] text-zinc-650 leading-relaxed">
+                      To ensure ultra-low latency searches and ticket creations without network timeouts, our system utilizes a local SQLite cache. Every database entity contains sync telemetry metadata:
+                    </p>
+                    <pre className="bg-[#1B1A18] text-[#FCFAF2] p-2.5 rounded text-[9px] font-mono overflow-x-auto mt-1 leading-normal">
+{`val isSynced: Boolean = false // Sync state flag
+val isDeleted: Boolean = false // Soft deletion flag
+val updatedAt: Long = System.currentTimeMillis() // Collision resolver`}
+                    </pre>
+                  </div>
+
+                  {/* Subsection 3 */}
+                  <div className="space-y-1.5 p-3.5 bg-[#FDFBF7] border border-[#E5DECE] rounded-lg">
+                    <h4 className="font-serif font-bold text-xs text-[#1B1A18] flex items-center gap-2">
+                      <span className="w-4 h-4 rounded bg-[#8B6B3F]/10 text-[#8B6B3F] text-[9px] font-mono flex items-center justify-center font-bold">3</span>
+                      Reactive Cloud Data Lake (Firestore Schema)
+                    </h4>
+                    <p className="text-[11px] text-zinc-650 leading-relaxed">
+                      Cloud records mirror the relational database structures, partitioned per shop-owner for absolute isolation:
+                    </p>
+                    <pre className="bg-[#1B1A18] text-[#FCFAF2] p-2.5 rounded text-[9px] font-mono overflow-x-auto mt-1 leading-normal">
+{`Firestore Database (Root)
+   └─── global_owners_directory
+   └─── users
+          └─── {ownerUserId} (Primary Shop Root)
+                 ├─── customers
+                 ├─── order_records
+                 └─── ledger_records`}
+                    </pre>
+                  </div>
+
+                  {/* Subsection 4 */}
+                  <div className="space-y-1.5 p-3.5 bg-[#FDFBF7] border border-[#E5DECE] rounded-lg">
+                    <h4 className="font-serif font-bold text-xs text-[#1B1A18] flex items-center gap-2">
+                      <span className="w-4 h-4 rounded bg-[#8B6B3F]/10 text-[#8B6B3F] text-[9px] font-mono flex items-center justify-center font-bold">4</span>
+                      Seamless Auto-Sync Engine (SyncManager)
+                    </h4>
+                    <p className="text-[11px] text-zinc-650 leading-relaxed">
+                      Data synchronizes dynamically through two-phase reconciliation:
+                    </p>
+                    <ul className="list-disc pl-4 text-[10px] text-zinc-600 space-y-1 mt-1">
+                      <li>
+                        <strong>Phase I (Upload Push):</strong> SyncManager queries the local database for modified records (<code className="font-mono text-[9px] bg-amber-50 px-1 text-amber-700">isSynced == false</code>) and uploads them, applying remote deletions where soft-deleted flags exist.
+                      </li>
+                      <li>
+                        <strong>Phase II (Download Pull &amp; Resolve):</strong> Updates the local cache with cloud records, resolving version divergence:
+                        <div className="text-[9px] text-[#8B6B3F] font-mono mt-0.5 pl-2">
+                          if (cloud.updatedAt &gt; local.updatedAt) local.write()
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-[10px] text-zinc-400 font-mono mt-2">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Real-Time Engine fully compliant with OIDC &amp; OAUTH-2 specifications.</span>
+                </div>
+              </div>
+
             </div>
           )}
 

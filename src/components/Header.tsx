@@ -94,7 +94,7 @@ export default function Header({ activeSection, onNavigate, onInstallClick, onLa
             <button
               id="mobile-menu-toggle"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 text-brand-slate hover:text-brand-charcoal focus:outline-none"
+              className="p-2 text-brand-slate hover:text-brand-charcoal focus:outline-none relative -top-2 -right-1.5 transition-all"
             >
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
