@@ -1,0 +1,6 @@
+{
+  "name": "TailorShopManager",
+  "description": "Bespoke landing page and supporting website for the TailorShopManager tailoring shop app, featuring an interactive ticketing system, sizing templates, wage logs, and privacy compliance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
