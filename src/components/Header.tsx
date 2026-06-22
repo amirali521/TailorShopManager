@@ -5,9 +5,10 @@ interface HeaderProps {
   activeSection: string;
   onNavigate: (sectionId: string) => void;
   onInstallClick: () => void;
+  onLaunchApp: () => void;
 }
 
-export default function Header({ activeSection, onNavigate, onInstallClick }: HeaderProps) {
+export default function Header({ activeSection, onNavigate, onInstallClick, onLaunchApp }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -85,10 +86,13 @@ export default function Header({ activeSection, onNavigate, onInstallClick }: He
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-4">
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-brand-moss/10 text-brand-moss border border-brand-moss/20 rounded-full text-xs font-mono">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Privacy Verified</span>
-            </div>
+            <button
+              id="header-cta-launch-app"
+              onClick={onLaunchApp}
+              className="px-4 py-2 bg-[#8B6B3F] hover:bg-[#1B1A18] text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-extrabold cursor-pointer hover:shadow-md transition-all duration-305"
+            >
+              Launch Web App
+            </button>
             <button
               id="header-cta-install"
               onClick={onInstallClick}
@@ -100,6 +104,13 @@ export default function Header({ activeSection, onNavigate, onInstallClick }: He
 
           {/* Mobile Menu Button */}
           <div className="flex md:hidden items-center gap-2">
+            <button
+              onClick={onLaunchApp}
+              className="px-2.5 py-1 bg-[#8B6B3F] text-white rounded text-[10px] font-mono tracking-wider font-bold uppercase"
+              title="Launch Desktop App"
+            >
+              Launch App
+            </button>
             <button
               id="header-cta-install-mobile-shortcut"
               onClick={onInstallClick}
@@ -139,17 +150,22 @@ export default function Header({ activeSection, onNavigate, onInstallClick }: He
             ))}
           </div>
           <div className="pt-4 border-t border-brand-gold/20 flex flex-col gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 text-brand-moss text-xs font-mono">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Offline Local Auth: Verified</span>
-            </div>
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onLaunchApp();
+              }}
+              className="w-full text-center px-4 py-3 bg-[#8B6B3F] text-white hover:bg-brand-charcoal transition-all rounded font-sans text-xs tracking-wider uppercase font-bold"
+            >
+              Launch Responsive Desktop Web App
+            </button>
             <button
               id="mobile-drawer-cta-install"
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 onInstallClick();
               }}
-              className="w-full text-center px-4 py-3 bg-brand-gold text-brand-cream hover:bg-brand-gold-light transition-all rounded font-sans text-xs tracking-wider uppercase font-bold"
+              className="w-full text-center px-4 py-3 border border-brand-gold/50 text-brand-gold hover:bg-brand-gold-light/10 transition-all rounded font-sans text-xs tracking-wider uppercase font-bold"
             >
               Download Android App (APK)
             </button>
