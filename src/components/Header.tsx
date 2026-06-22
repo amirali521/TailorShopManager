@@ -5,10 +5,9 @@ interface HeaderProps {
   activeSection: string;
   onNavigate: (sectionId: string) => void;
   onInstallClick: () => void;
-  onLaunchApp: () => void;
 }
 
-export default function Header({ activeSection, onNavigate, onInstallClick, onLaunchApp }: HeaderProps) {
+export default function Header({ activeSection, onNavigate, onInstallClick }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -86,7 +85,14 @@ export default function Header({ activeSection, onNavigate, onInstallClick, onLa
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-4">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-brand-gold font-bold">❖ Bespoke Workspace</span>
+            <button
+              id="header-download-apk-btn"
+              onClick={onInstallClick}
+              className="px-4 py-2.5 bg-[#8B6B3F] hover:bg-[#1B1A18] text-[#FCFAF2] rounded font-sans text-[11px] tracking-wider uppercase font-extrabold flex items-center justify-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download APK</span>
+            </button>
           </div>
 
           {/* Mobile Menu Button */}
@@ -121,7 +127,18 @@ export default function Header({ activeSection, onNavigate, onInstallClick, onLa
               </button>
             ))}
           </div>
-          <div className="pt-4 border-t border-brand-gold/20 text-center">
+          <div className="pt-4 border-t border-brand-gold/20 flex flex-col gap-3 items-center">
+            <button
+              id="mobile-menu-download-apk"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onInstallClick();
+              }}
+              className="w-full py-3 bg-[#8B6B3F] hover:bg-[#1B1A18] text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 shadow-sm cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Android APK</span>
+            </button>
             <span className="text-[10px] font-mono uppercase tracking-widest text-brand-gold font-bold">
               ❖ TailorShopManager OS
             </span>

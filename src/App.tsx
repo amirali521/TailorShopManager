@@ -12,11 +12,10 @@ import AboutUs from "./components/AboutUs";
 import PrivacyPolicy from "./components/PrivacyPolicy";
 import ContactUs from "./components/ContactUs";
 import Footer from "./components/Footer";
-import DesktopApp from "./components/DesktopApp";
 import PrivacyPage from "./components/PrivacyPage";
 
 export default function App() {
-  const [viewMode, setViewMode] = useState<"landing" | "desktopApp" | "privacyPage">("landing");
+  const [viewMode, setViewMode] = useState<"landing" | "privacyPage">("landing");
   const [activeSection, setActiveSection] = useState("home");
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -92,10 +91,6 @@ export default function App() {
     }, 150);
   };
 
-  if (viewMode === "desktopApp") {
-    return <DesktopApp onBackToLanding={() => setViewMode("landing")} />;
-  }
-
   if (viewMode === "privacyPage") {
     return <PrivacyPage onBack={() => setViewMode("landing")} />;
   }
@@ -108,7 +103,6 @@ export default function App() {
         activeSection={activeSection} 
         onNavigate={handleNavigate} 
         onInstallClick={triggerDownloadApk} 
-        onLaunchApp={() => setViewMode("desktopApp")}
       />
 
       {/* 1. HERO HIGHLIGHTS SECTION (HOME PAGE) */}
@@ -152,24 +146,15 @@ export default function App() {
                   The ultimate mobile atelier assistant for bespoke tailors, custom suit makers, and fashion boutique artisans. Track master sizing records, generate retro aesthetic billing tickets, and manage employee ledger logs with flawless precision.
                 </p>
 
-                {/* Main CTAs */}
+                 {/* Main CTAs */}
                 <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                  <button
-                    id="hero-cta-launch-app"
-                    onClick={() => setViewMode("desktopApp")}
-                    className="px-6 py-4 bg-[#8B6B3F] hover:bg-[#1B1A18] text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg cursor-pointer hover:-translate-y-0.5"
-                  >
-                    <Sparkles className="w-4 h-4 text-brand-gold animate-pulse" />
-                    <span>Launch Desktop Web App</span>
-                  </button>
-
                   <button
                     id="hero-cta-download-apk"
                     onClick={triggerDownloadApk}
-                    className="px-6 py-4 border-2 border-[#8B6B3F]/60 hover:bg-[#F5F2EB] text-brand-charcoal rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
+                    className="px-8 py-4 bg-[#8B6B3F] hover:bg-[#1B1A18] text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg cursor-pointer hover:-translate-y-0.5"
                   >
                     {/* Simulated android installer icon */}
-                    <svg className="w-5 h-5 fill-current text-[#8B6B3F]" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 fill-current text-white" viewBox="0 0 24 24">
                       <path d="M17.523 15.3l1.816 3.146a.715.715 0 1 1-1.238.715L16.264 16H7.736l-1.837 3.161a.715.715 0 0 1-1.237-.715L6.477 15.3c-2.45-1.554-4.108-4.223-4.136-7.3H21.66c-.028 3.077-1.686 5.746-4.137 7.3M15 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2m-6 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2"/>
                     </svg>
                     <span>Download Android APK</span>
@@ -178,10 +163,10 @@ export default function App() {
                   <button
                     id="hero-cta-explore"
                     onClick={() => handleNavigate("features")}
-                    className="px-5 py-4 text-[#8B6B3F] hover:text-[#1B1A18] font-sans text-xs tracking-wider uppercase font-bold flex items-center justify-center gap-1.5 transition-colors duration-300 cursor-pointer"
+                    className="px-6 py-4 border-2 border-[#8B6B3F]/40 hover:bg-[#F5F2EB] text-brand-charcoal rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
                   >
                     <span>Sizing Specs</span>
-                    <ArrowDown className="w-4 h-4 animate-bounce" />
+                    <ArrowDown className="w-4 h-4 animate-bounce text-brand-gold animate-bounce" />
                   </button>
                 </div>
 
