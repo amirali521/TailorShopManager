@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, ReactNode } from "react";
 import { 
   Scissors, Heart, Search, Bell, Plus, Trash2, Edit2, 
   ChevronRight, Smartphone, Share2, Printer, Check, 
@@ -6,7 +6,11 @@ import {
 } from "lucide-react";
 import { SIZING_TEMPLATES, SizingTemplate } from "../types";
 
-export default function InteractiveDevice() {
+interface InteractiveDeviceProps {
+  children?: ReactNode;
+}
+
+export default function InteractiveDevice({ children }: InteractiveDeviceProps) {
   const [activeTab, setActiveTab] = useState<"Splash" | "Customers" | "Inventory" | "Templates">("Customers");
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -58,10 +62,18 @@ export default function InteractiveDevice() {
   };
 
   return (
-    <div id="tailor-app-simulator" className="flex flex-col lg:flex-row gap-10 items-center justify-center p-4">
+    <div id="tailor-app-simulator" className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start w-full text-left">
       
-      {/* SIMULATED DEVICE (LEFT/CENTER COLUMN) */}
-      <div className="relative group shrink-0">
+      {/* 1. HERO CONTENT COLUMN */}
+      {children && (
+        <div className="lg:col-span-7 lg:row-start-1 w-full">
+          {children}
+        </div>
+      )}
+
+      {/* 2. SIMULATED DEVICE (UPPER RIGHT ON DESKTOP, SECOND ON MOBILE) */}
+      <div className="lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-32 flex justify-center w-full">
+        <div className="relative group shrink-0">
         {/* Glow effect surrounding phone */}
         <div className="absolute -inset-1 rounded-[42px] bg-gradient-to-tr from-brand-gold via-brand-slate to-brand-moss opacity-15 blur-lg group-hover:opacity-25 transition duration-1000"></div>
 
@@ -535,10 +547,11 @@ export default function InteractiveDevice() {
           </div>
         </div>
       </div>
+    </div>
 
 
-      {/* LANDING PAGE CONTROL PANEL (RIGHT COLUMN) */}
-      <div id="simulator-control-panel" className="flex-1 w-full max-w-lg text-left bg-white p-6 rounded-2xl border border-brand-gold/30 shadow-md kraft-shadow">
+      {/* 3. LANDING PAGE CONTROL PANEL (STACKED UNDER HERO ON DESKTOP, THIRD ON MOBILE) */}
+      <div id="simulator-control-panel" className="lg:col-span-7 lg:row-start-2 w-full bg-white p-6 sm:p-8 rounded-2xl border border-brand-gold/30 shadow-md kraft-shadow">
         <span className="text-xs uppercase font-mono text-brand-gold font-bold tracking-widest block mb-1">
           ❖ LIVE APPLICATION SANDBOX
         </span>

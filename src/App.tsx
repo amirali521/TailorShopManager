@@ -125,10 +125,8 @@ export default function App() {
           </div>
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center text-left">
-              
-              {/* Text Highlights Column (Left on Desktop) */}
-              <div className="lg:col-span-6 space-y-6">
+            <InteractiveDevice>
+              <div className="space-y-6">
                 
                 {/* Micro active security banner */}
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#4F5D2F]/10 border border-[#4F5D2F]/20 rounded-full text-[10px] font-mono text-[#4F5D2F] font-bold uppercase tracking-wider">
@@ -166,7 +164,7 @@ export default function App() {
                     className="px-6 py-4 border-2 border-[#8B6B3F]/40 hover:bg-[#F5F2EB] text-brand-charcoal rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
                   >
                     <span>Sizing Specs</span>
-                    <ArrowDown className="w-4 h-4 animate-bounce text-brand-gold animate-bounce" />
+                    <ArrowDown className="w-4 h-4 animate-bounce text-brand-gold" />
                   </button>
                 </div>
 
@@ -183,13 +181,7 @@ export default function App() {
                 </div>
 
               </div>
-
-              {/* Dynamic Interactive Smartphone Mockup */}
-              <div className="lg:col-span-6 flex justify-center">
-                <InteractiveDevice />
-              </div>
-
-            </div>
+            </InteractiveDevice>
           </div>
         </section>
 
