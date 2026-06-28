@@ -10,6 +10,7 @@ export default function Footer({ onNavigate }: FooterProps) {
     { label: "Features", id: "features", isExternal: false },
     { label: "About Us", id: "about", isExternal: false },
     { label: "Privacy Policy", id: "/privacy.html", isExternal: true },
+    { label: "Data Deletion", id: "/delete-account.html", isExternal: true },
     { label: "Contact Us", id: "contact", isExternal: false }
   ];
 
