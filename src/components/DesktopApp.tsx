@@ -109,6 +109,9 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
   const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"customers" | "workers" | "inventory">("customers");
   
+  // Mobile customer view state
+  const [customerSubTab, setCustomerSubTab] = useState<"list" | "form" | "ticket">("list");
+  
   // Real-time synchronization states
   const [customers, setCustomers] = useState<CustomerData[]>([]);
   const [workers, setWorkers] = useState<WorkerData[]>([]);
@@ -406,6 +409,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
     }
     alert(isEditingCust ? "Customer measurements updated successfully!" : "New customer registered in database!");
     resetCustomerFormFields();
+    setCustomerSubTab("ticket");
   };
 
   // 2. DELETE CUSTOMER
@@ -604,13 +608,13 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
     <div className="min-h-screen bg-[#F6F4EB] text-brand-charcoal font-sans antialiased flex flex-col">
       
       {/* Premium Desktop Header */}
-      <header className="bg-brand-charcoal border-b-2 border-brand-gold text-brand-cream px-8 py-4 shrink-0 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-brand-gold flex items-center justify-center text-brand-cream border border-brand-gold/30">
+      <header className="bg-brand-charcoal border-b-2 border-brand-gold text-brand-cream px-4 md:px-8 py-4 shrink-0 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg">
+        <div className="flex items-center gap-3 text-center md:text-left flex-col md:flex-row">
+          <div className="w-10 h-10 rounded-full bg-brand-gold flex items-center justify-center text-brand-cream border border-brand-gold/30 shrink-0">
             <Scissors className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="font-serif text-2xl font-bold tracking-wider uppercase flex items-center gap-2">
+            <h1 className="font-serif text-xl md:text-2xl font-bold tracking-wider uppercase flex items-center justify-center md:justify-start gap-2 flex-wrap">
               <span>TailorShopManager</span>
               <span className="text-[10px] bg-brand-gold px-2 py-0.5 rounded font-mono text-white tracking-widest">DESKTOP v1.2</span>
             </h1>
@@ -619,7 +623,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
         </div>
 
         {/* Database Connection / Auth Status indicator */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 px-3 py-1 bg-zinc-800/80 rounded border border-zinc-700 text-[11px] font-mono">
             {syncStatus === "connected" ? (
               <>
@@ -679,14 +683,14 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
 
       {/* Guest Mode Notification Bar */}
       {!currentUser && !authLoading && (
-        <div className="bg-[#8B6B3F] text-white py-2.5 px-8 text-xs font-semibold flex items-center justify-between shrink-0 shadow-inner">
-          <div className="flex items-center gap-2">
+        <div className="bg-[#8B6B3F] text-white py-2.5 px-4 md:px-8 text-xs font-semibold flex flex-col md:flex-row items-center gap-3 justify-between shrink-0 shadow-inner">
+          <div className="flex items-center gap-2 text-center md:text-left">
             <Sparkles className="w-4 h-4 shrink-0 animate-bounce" />
             <span>Currently using Guest Sandbox workspace. Sign in with Google to enable real-time cloud backup, permanent sizing records, and synchronized employee accounts!</span>
           </div>
           <button 
             onClick={handleGoogleSignIn}
-            className="px-3 py-1 bg-white hover:bg-brand-cream text-[#8B6B3F] rounded uppercase font-mono font-extrabold text-[10px] tracking-wide transition shadow"
+            className="px-3 py-1 bg-white hover:bg-brand-cream text-[#8B6B3F] rounded uppercase font-mono font-extrabold text-[10px] tracking-wide transition shadow shrink-0"
           >
             Authorize Backup Setup
           </button>
@@ -694,10 +698,10 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
       )}
 
       {/* Desktop Workspace Grid */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         
         {/* Left Side: Desktop Sidebar Navigation */}
-        <aside className="w-64 bg-brand-cream border-r border-brand-gold/20 flex flex-col justify-between shrink-0">
+        <aside className="hidden md:flex w-64 bg-brand-cream border-r border-brand-gold/20 flex-col justify-between shrink-0">
           <div className="p-6 space-y-6">
             <span className="text-[10px] font-mono text-brand-gold font-bold uppercase tracking-widest block">
               Workspace Nav
@@ -757,10 +761,46 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
           
           {/* TAB 1: CUSTOMERS HUB */}
           {activeTab === "customers" && (
-            <div className="flex-1 flex overflow-hidden animate-fadeIn">
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden animate-fadeIn">
               
+              {/* Mobile customer sub-navigation */}
+              <div className="md:hidden flex bg-white border-b border-zinc-150 py-2.5 px-4 justify-between items-center shrink-0">
+                <div className="flex gap-1.5 w-full">
+                  <button
+                    onClick={() => setCustomerSubTab("list")}
+                    className={`flex-1 py-2 px-2 rounded-md text-center font-sans font-bold text-[10px] uppercase transition cursor-pointer ${
+                      customerSubTab === "list"
+                        ? "bg-brand-gold text-white shadow-sm"
+                        : "bg-zinc-100 text-zinc-650 hover:bg-zinc-200"
+                    }`}
+                  >
+                    Client List
+                  </button>
+                  <button
+                    onClick={() => setCustomerSubTab("form")}
+                    className={`flex-1 py-2 px-2 rounded-md text-center font-sans font-bold text-[10px] uppercase transition cursor-pointer ${
+                      customerSubTab === "form"
+                        ? "bg-brand-gold text-white shadow-sm"
+                        : "bg-zinc-100 text-zinc-650 hover:bg-zinc-200"
+                    }`}
+                  >
+                    Sizing Form
+                  </button>
+                  <button
+                    onClick={() => setCustomerSubTab("ticket")}
+                    className={`flex-1 py-2 px-2 rounded-md text-center font-sans font-bold text-[10px] uppercase transition cursor-pointer ${
+                      customerSubTab === "ticket"
+                        ? "bg-brand-gold text-white shadow-sm"
+                        : "bg-zinc-100 text-zinc-650 hover:bg-zinc-200"
+                    }`}
+                  >
+                    Ticket Preview
+                  </button>
+                </div>
+              </div>
+
               {/* Customer Left Column - Directory List */}
-              <div className="w-80 bg-white border-r border-zinc-150 flex flex-col shrink-0">
+              <div className={`w-full md:w-80 bg-white border-r border-zinc-150 flex-col shrink-0 ${customerSubTab === "list" ? "flex flex-1 md:flex-initial" : "hidden md:flex"}`}>
                 
                 {/* Search Bar */}
                 <div className="p-4 border-b border-zinc-100 space-y-3">
@@ -793,6 +833,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
                         onClick={() => {
                           setSelectedCustomer(cust);
                           resetCustomerFormFields(cust);
+                          setCustomerSubTab("form");
                         }}
                         className={`p-4 text-left cursor-pointer transition flex items-center justify-between ${
                           selectedCustomer?.id === cust.id 
@@ -826,7 +867,10 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
                 {/* Create New Button */}
                 <div className="p-4 bg-brand-cream border-t border-brand-gold/15 shrink-0">
                   <button
-                    onClick={() => resetCustomerFormFields()}
+                    onClick={() => {
+                      resetCustomerFormFields();
+                      setCustomerSubTab("form");
+                    }}
                     className="w-full py-2.5 bg-[#8B6B3F] hover:bg-[#1B1A18] text-white rounded font-sans text-xs tracking-wider uppercase font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
@@ -837,7 +881,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
               </div>
 
               {/* Customer Middle Column - Interactive Editor Form */}
-              <div className="flex-1 overflow-y-auto p-8 border-r border-zinc-150">
+              <div className={`flex-1 overflow-y-auto p-4 md:p-8 border-r border-zinc-150 ${customerSubTab === "form" ? "block" : "hidden md:block"}`}>
                 <div className="max-w-2xl mx-auto space-y-6">
                   
                   <div className="text-left">
@@ -962,7 +1006,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
               </div>
 
               {/* Customer Right Column - Retro Golden-Bordered Ticket Preview */}
-              <div className="w-96 bg-brand-cream/40 p-6 flex flex-col justify-start overflow-y-auto shrink-0">
+              <div className={`w-full md:w-96 bg-brand-cream/40 p-4 md:p-6 flex-col justify-start overflow-y-auto shrink-0 ${customerSubTab === "ticket" ? "flex flex-1 md:flex-initial" : "hidden md:flex"}`}>
                 <span className="text-[10px] font-mono font-bold text-brand-gold tracking-widest block mb-4 uppercase text-center">
                   ⚡ CUSTOMER TICKET PREVIEW
                 </span>
@@ -1079,11 +1123,11 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
 
           {/* TAB 2: WORKERS LEDGER */}
           {activeTab === "workers" && (
-            <div className="flex-1 flex flex-col p-8 overflow-y-auto animate-fadeIn text-left">
+            <div className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto animate-fadeIn text-left">
               <div className="max-w-5xl mx-auto w-full space-y-8">
                 
                 {/* Intro section */}
-                <div className="flex items-center justify-between border-b border-brand-gold/20 pb-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-gold/20 pb-4">
                   <div>
                     <span className="text-[10px] font-mono text-brand-gold font-bold uppercase tracking-wider block mb-1">
                       ❖ ATELIER STAFF WAGES & COMISSIONS
@@ -1314,16 +1358,16 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
 
           {/* TAB 3: INVENTORY HUB */}
           {activeTab === "inventory" && (
-            <div className="flex-1 flex flex-col p-8 overflow-y-auto animate-fadeIn text-left">
+            <div className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto animate-fadeIn text-left">
               <div className="max-w-5xl mx-auto w-full space-y-8">
                 
                 {/* Intro header */}
-                <div className="border-b border-brand-gold/20 pb-4 flex justify-between items-end">
+                <div className="border-b border-brand-gold/20 pb-4 flex flex-col md:flex-row md:items-center gap-4 justify-between">
                   <div>
                     <span className="text-[10px] font-mono text-brand-gold font-bold uppercase tracking-wider block mb-1">
                       ❖ FABRIC WAREHOUSE & STOCK CONTROLS
                     </span>
-                    <h2 className="font-serif text-3xl font-bold text-brand-charcoal">
+                    <h2 className="font-serif text-2xl md:text-3xl font-bold text-brand-charcoal">
                       Atelier Fabric & Materials Directory
                     </h2>
                     <p className="text-xs text-brand-slate mt-1">
@@ -1333,7 +1377,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
                 </div>
 
                 {/* Grid Metrics */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                   <div className="bg-white border p-4.5 rounded-xl shadow-xs">
                     <span className="text-[10px] font-mono text-zinc-400 block uppercase font-bold">Fabrics Types</span>
                     <h4 className="font-mono text-xl font-bold mt-1 text-brand-charcoal">{inventory.length} Registered</h4>
@@ -1370,13 +1414,13 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
                         </div>
                       ) : (
                         inventory.map((item) => (
-                          <div key={item.id} className="p-4 flex items-center justify-between hover:bg-zinc-50/50 transition text-xs">
-                            <div className="min-w-0 flex-1 text-left">
+                          <div key={item.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-zinc-50/50 transition text-xs">
+                            <div className="min-w-0 flex-1 text-left w-full sm:w-auto">
                               <h4 className="font-bold text-zinc-800 text-sm">{item.name}</h4>
                               <span className="text-[10px] text-zinc-400 block mt-0.5">Rolled under yardage specifications • Unit: {item.unitType}</span>
                               
                               {/* Stock visualizer */}
-                              <div className="w-48 bg-zinc-100 rounded-full h-1.5 overflow-hidden mt-2 border">
+                              <div className="w-full sm:w-48 bg-zinc-100 rounded-full h-1.5 overflow-hidden mt-2 border">
                                 <div 
                                   className="bg-brand-moss h-full"
                                   style={{ width: `${Math.min(item.stock, 100)}%` }}
@@ -1384,7 +1428,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-6 font-mono text-center mx-6 text-[11px]">
+                            <div className="grid grid-cols-3 gap-4 sm:gap-6 font-mono text-center sm:mx-6 text-[11px] bg-zinc-50 sm:bg-transparent p-2 sm:p-0 rounded border sm:border-0 border-zinc-100 w-full sm:w-auto">
                               <div>
                                 <span className="block text-[8px] text-zinc-400 font-sans uppercase">COST</span>
                                 ${item.cost}
@@ -1399,7 +1443,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto shrink-0">
                               <span className="font-mono bg-brand-eggshell text-brand-charcoal font-bold px-2.5 py-1 rounded border text-[11px]">
                                 {item.stock} yds
                               </span>
@@ -1501,6 +1545,37 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
 
         </main>
 
+      </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="md:hidden flex border-t border-brand-gold/15 bg-brand-cream justify-around py-2.5 shrink-0 z-10 shadow-lg">
+        <button
+          onClick={() => setActiveTab("customers")}
+          className={`flex flex-col items-center gap-1 py-1 px-3 text-[10px] font-bold uppercase transition cursor-pointer ${
+            activeTab === "customers" ? "text-brand-gold" : "text-brand-slate"
+          }`}
+        >
+          <User className="w-5 h-5" />
+          <span>Clients</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("workers")}
+          className={`flex flex-col items-center gap-1 py-1 px-3 text-[10px] font-bold uppercase transition cursor-pointer ${
+            activeTab === "workers" ? "text-brand-gold" : "text-brand-slate"
+          }`}
+        >
+          <Users className="w-5 h-5" />
+          <span>Wages</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("inventory")}
+          className={`flex flex-col items-center gap-1 py-1 px-3 text-[10px] font-bold uppercase transition cursor-pointer ${
+            activeTab === "inventory" ? "text-brand-gold" : "text-brand-slate"
+          }`}
+        >
+          <ShoppingBag className="w-5 h-5" />
+          <span>Stock</span>
+        </button>
       </div>
 
     </div>
