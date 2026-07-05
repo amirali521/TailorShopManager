@@ -53,42 +53,28 @@ export default function App() {
   };
 
   const triggerDownloadApk = () => {
+    // Open Google Play Store listing directly in a new tab
+    try {
+      window.open("https://play.google.com/store/apps/details?id=com.tailorshopmanager.tsm", "_blank");
+    } catch (e) {
+      // Ignored if browser popup protection intercepts
+    }
+
     setIsDownloadOpen(true);
     setDownloadSuccess(false);
     setDownloadProgress(0);
 
-    // Simulate standard down-stream transmission progress
+    // Simulate progress bar quickly then display success & direct links
     const timer = setInterval(() => {
       setDownloadProgress((prev) => {
         if (prev >= 100) {
           clearInterval(timer);
           setDownloadSuccess(true);
-          
-          // Trigger a lightweight mock download of sizing manual text file as a keepsake!
-          try {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(
-              JSON.stringify({
-                app: "TailorShopManager OS",
-                version: "1.4.0-build-2026",
-                architecture: "Android-ARM64-Offline",
-                signature: "TAILORSHOPMANAGER-SECURE-STITCH",
-                checksum: "SHA256-a9f82dbeec23ee"
-              }, null, 2)
-            );
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", "tailorshopmanager_setup_docket.json");
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
-          } catch (e) {
-            // Ignored if browser sandbox prevents frame download trigger
-          }
           return 100;
         }
-        return prev + 20;
+        return prev + 25;
       });
-    }, 150);
+    }, 100);
   };
 
   if (viewMode === "privacyPage") {
@@ -229,10 +215,10 @@ export default function App() {
             {/* Title */}
             <div className="text-center mb-6 border-b pb-4 border-brand-gold/20">
               <span className="text-[10px] uppercase font-mono text-brand-gold font-bold tracking-widest block mb-1">
-                ⚡ SECURE APK DOCKET
+                ⚡ GOOGLE PLAY INSTALLER
               </span>
               <h3 className="font-serif text-2xl font-bold text-center text-brand-charcoal">
-                TailorShopManager Setup
+                TailorShopManager App
               </h3>
             </div>
 
@@ -240,7 +226,7 @@ export default function App() {
             {!downloadSuccess ? (
               <div className="space-y-4">
                 <p className="text-xs text-brand-slate leading-relaxed">
-                  Packaging your secure offline-first tailor shop registry credentials. Generating latest workspace build...
+                  Connecting to the secure Google Play Store servers. Launching official store page...
                 </p>
                 
                 {/* Vintage Card progress bar */}
@@ -250,7 +236,7 @@ export default function App() {
                     style={{ width: `${downloadProgress}%` }}
                   ></div>
                   <span className="absolute inset-0 flex items-center justify-center text-[9px] font-mono font-bold text-zinc-600">
-                    Transmitting Package... {downloadProgress}%
+                    Routing to Play Store... {downloadProgress}%
                   </span>
                 </div>
               </div>
@@ -260,26 +246,42 @@ export default function App() {
                 <div className="flex gap-3 items-start bg-[#4F5D2F]/10 border border-[#4F5D2F]/20 p-3 rounded-lg text-xs text-[#4F5D2F] font-medium leading-relaxed">
                   <Check className="w-5 h-5 shrink-0 text-brand-moss" />
                   <div>
-                    <span className="font-bold block">build docket saved!</span>
-                    Sizing dockets checksum verified. APK signature keys set successfully.
+                    <span className="font-bold block">Redirected Successfully!</span>
+                    Our official listing has been opened in a new window.
                   </div>
                 </div>
 
+                {/* Manual Link in case of popups blocked */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">
+                    Did not redirect automatically?
+                  </span>
+                  <a
+                    href="https://play.google.com/store/apps/details?id=com.tailorshopmanager.tsm"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 bg-[#4F5D2F] hover:bg-[#3d4924] text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition duration-300 shadow-sm cursor-pointer"
+                  >
+                    <span>Open Google Play Page</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+
                 {/* Installation Guidelines */}
-                <div className="space-y-3.5">
+                <div className="space-y-3.5 pt-1">
                   <span className="text-[10px] font-mono font-bold text-brand-gold uppercase block">
-                    HOW TO INSTALL APK (ANDROID DIRECTIONS):
+                    HOW TO GET STARTED:
                   </span>
                   
                   <ol className="text-xs text-brand-slate space-y-2.5 font-sans pl-4 list-decimal">
                     <li>
-                      <strong>Check Your Downloads Folder:</strong> Look for the downloaded installer file <code>tailorshopmanager_setup_docket.json</code> or the downloaded configuration package in your notifications.
+                      Tap <strong>Install</strong> on the Google Play Store interface.
                     </li>
                     <li>
-                      <strong>Enable Unknown Sources:</strong> Slide down your Android settings, tap <em>Security</em>, and temporarily authorize <u>Install from Unknown Sources</u>.
+                      Wait for the safe download and automatic configuration to finish.
                     </li>
                     <li>
-                      <strong>Open & Align:</strong> Run the package. Start measuring instantly with absolute biometric safety!
+                      Launch the app to manage customers, measurements, and wage ledgers with full data privacy!
                     </li>
                   </ol>
                 </div>
@@ -287,9 +289,9 @@ export default function App() {
                 {/* Action button close */}
                 <button
                   onClick={() => setIsDownloadOpen(false)}
-                  className="w-full py-2.5 bg-brand-charcoal hover:bg-brand-gold text-brand-cream font-bold text-xs tracking-wider uppercase rounded transition"
+                  className="w-full py-2.5 bg-brand-charcoal hover:bg-brand-gold text-brand-cream font-bold text-xs tracking-wider uppercase rounded transition cursor-pointer"
                 >
-                  Dismiss & Open Workspace
+                  Close & Open Sandbox
                 </button>
               </div>
             )}
