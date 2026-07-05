@@ -4,7 +4,7 @@ import { getFirestore } from "firebase/firestore";
 
 // Your provided Firebase web app configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBzm02B_6KaHll-aOtMARnW1vxkoRTgS5s",
+  apiKey: "AIzaSyAa5BGNTWkxw17HrtGa1X5JRdVAM9xHMec",
   authDomain: "tailorflow-17625.firebaseapp.com",
   databaseURL: "https://tailorflow-17625-default-rtdb.firebaseio.com",
   projectId: "tailorflow-17625",

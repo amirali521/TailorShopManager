@@ -5,9 +5,10 @@ interface HeaderProps {
   activeSection: string;
   onNavigate: (sectionId: string) => void;
   onInstallClick: () => void;
+  onDesktopPortalClick?: () => void;
 }
 
-export default function Header({ activeSection, onNavigate, onInstallClick }: HeaderProps) {
+export default function Header({ activeSection, onNavigate, onInstallClick, onDesktopPortalClick }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -84,7 +85,16 @@ export default function Header({ activeSection, onNavigate, onInstallClick }: He
           </nav>
 
           {/* Action Buttons */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
+            {onDesktopPortalClick && (
+              <button
+                id="header-desktop-portal-btn"
+                onClick={onDesktopPortalClick}
+                className="px-4 py-2.5 bg-brand-charcoal hover:bg-brand-gold text-brand-cream border border-brand-gold rounded font-sans text-[11px] tracking-wider uppercase font-extrabold flex items-center justify-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer"
+              >
+                <span>💻 Desktop Portal</span>
+              </button>
+            )}
             <button
               id="header-download-apk-btn"
               onClick={onInstallClick}
@@ -128,6 +138,18 @@ export default function Header({ activeSection, onNavigate, onInstallClick }: He
             ))}
           </div>
           <div className="pt-4 border-t border-brand-gold/20 flex flex-col gap-3 items-center">
+            {onDesktopPortalClick && (
+              <button
+                id="mobile-menu-desktop-portal"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onDesktopPortalClick();
+                }}
+                className="w-full py-3 bg-brand-charcoal hover:bg-brand-gold text-brand-cream border border-brand-gold rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 shadow-sm cursor-pointer"
+              >
+                <span>💻 Open Desktop Portal</span>
+              </button>
+            )}
             <button
               id="mobile-menu-download-apk"
               onClick={() => {

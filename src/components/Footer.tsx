@@ -2,15 +2,17 @@ import { Scissors } from "lucide-react";
 
 interface FooterProps {
   onNavigate: (sectionId: string) => void;
+  onPrivacyPolicyClick?: () => void;
+  onDeleteAccountClick?: () => void;
 }
 
-export default function Footer({ onNavigate }: FooterProps) {
+export default function Footer({ onNavigate, onPrivacyPolicyClick, onDeleteAccountClick }: FooterProps) {
   const links = [
     { label: "Home", id: "home", isExternal: false },
     { label: "Features", id: "features", isExternal: false },
     { label: "About Us", id: "about", isExternal: false },
-    { label: "Privacy Policy", id: "/privacy.html", isExternal: true },
-    { label: "Data Deletion", id: "/delete-account.html", isExternal: true },
+    { label: "Privacy Policy", id: "/privacy.html", isExternal: true, onClick: onPrivacyPolicyClick },
+    { label: "Data Deletion", id: "/delete-account.html", isExternal: true, onClick: onDeleteAccountClick },
     { label: "Contact Us", id: "contact", isExternal: false }
   ];
 
@@ -58,13 +60,23 @@ export default function Footer({ onNavigate }: FooterProps) {
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-2">
             {links.map((link) => (
               link.isExternal ? (
-                <a
-                  key={link.id}
-                  href={link.id}
-                  className="text-xs font-mono font-bold uppercase tracking-wider text-brand-slate hover:text-brand-gold transition duration-200 cursor-pointer"
-                >
-                  {link.label}
-                </a>
+                link.onClick ? (
+                  <button
+                    key={link.id}
+                    onClick={link.onClick}
+                    className="text-xs font-mono font-bold uppercase tracking-wider text-brand-slate hover:text-brand-gold transition duration-200 cursor-pointer bg-transparent border-none p-0 outline-none"
+                  >
+                    {link.label}
+                  </button>
+                ) : (
+                  <a
+                    key={link.id}
+                    href={link.id}
+                    className="text-xs font-mono font-bold uppercase tracking-wider text-brand-slate hover:text-brand-gold transition duration-200 cursor-pointer"
+                  >
+                    {link.label}
+                  </a>
+                )
               ) : (
                 <button
                   key={link.id}

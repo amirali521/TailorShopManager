@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "Customer": {
+      "title": "Customer",
+      "description": "A tailoring customer with bespoke measurement specs.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "templateId": { "type": "string" },
+        "customSizes": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "phone", "templateId", "customSizes"]
+    },
+    "Worker": {
+      "title": "Worker",
+      "description": "An atelier tailor paid on a piece-rate basis.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "unpaidWages": { "type": "number" },
+        "completedCount": { "type": "number" },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "role", "unpaidWages", "completedCount"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A piece-work order logged for a worker.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workerId": { "type": "string" },
+        "workerName": { "type": "string" },
+        "task": { "type": "string" },
+        "wage": { "type": "number" },
+        "time": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "userId": { "type": "string" }
+      },
+      "required": ["workerName", "task", "wage", "time"]
+    },
+    "Inventory": {
+      "title": "Inventory",
+      "description": "Fabric material or tailoring stock item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "unitType": { "type": "string" },
+        "cost": { "type": "number" },
+        "price": { "type": "number" },
+        "stock": { "type": "number" },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "unitType", "cost", "price", "stock"]
+    }
+  },
+  "firestore": {
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Sizing measurements and profiles for customer database."
+    },
+    "/workers/{workerId}": {
+      "schema": "Worker",
+      "description": "Directory of staff members tracking piece-rate commissions."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Historical logged task orders for staff."
+    },
+    "/inventory/{inventoryId}": {
+      "schema": "Inventory",
+      "description": "List of available fabrics, stock counts, and prices."
+    }
+  }
+}

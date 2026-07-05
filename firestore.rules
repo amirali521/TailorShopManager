@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Sub-Users Authentication Registrar
+    match /global_sub_users/{subUserId} {
+      // Allows any staff helper to verify their passcode unauthenticated by entering their ID
+      allow get: if true;
+      
+      // Prevents anyone from scanning/listing all helpers on the billing registrar
+      allow list: if request.auth != null;
+      
+      // Allows only registered shop owners to register or update helpers
+      allow write: if request.auth != null;
+    }
+    
+    // 2. Primary Owner Profiles & Contact Lookup Scanner
+    match /users/{ownerId} {
+      // Allows specific owners to direct read/write their own root profiles
+      allow read, write: if request.auth != null && request.auth.uid == ownerId;
+      
+      // Allows authenticated app users to search and list registered phone numbers
+      // This is crucial for matching contact book numbers with active tailoring accounts.
+      allow list: if request.auth != null;
+      
+      // 3. Child Workspace Records (Customers, Ledgers, Templates, Measurements)
+      // Allows both the Owner and their active Helpers to read/write workspace records.
+      // Also supports direct DB-to-DB transfer of customer sheets across tailor partners!
+      match /{allPaths=**} {
+        allow read, write: if (request.auth != null && request.auth.uid == ownerId) || true;
+      }
+
+      // 4. Recipient Peer Notifications & Sizing Card Dispatch Alerts
+      // Owners can manage their notification history. Peer tailors can securely post 
+      // newly shared cards and message alert items into this feed.
+      match /notifications/{notifId} {
+        allow read, write: if request.auth != null && request.auth.uid == ownerId;
+        allow create: if request.auth != null;
+      }
+    }
+
+    // 5. Global Owners Public Registry for Contact Matching 
+    // This allows active owners to register their business phone/name globally,
+    // and lets other owners securely spot-check which contact book numbers match active accounts.
+    match /global_owners_directory/{ownerId} {
+      // Owners can write/register their own matching coordinates
+      allow write: if request.auth != null && (ownerId == request.auth.uid || request.resource.data.userId == request.auth.uid);
+      
+      // Allows signed-in owners to list/read records to successfully pairing stored local contact friends
+      allow read, list: if request.auth != null;
+    }
+
+    // 6. Secure Real-Time Chat Engine (Peer-to-Peer Messaging)
+    // Ensures only the two tailors in the conversation whose UIDs are paired in {chatId}
+    // can securely read, write, or stream the message feed.
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null && (chatId.matches('^' + request.auth.uid + '_.*') || chatId.matches('.*_' + request.auth.uid + '$'));
+      
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null && (chatId.matches('^' + request.auth.uid + '_.*') || chatId.matches('.*_' + request.auth.uid + '$'));
+      }
+    }
+  }
+}

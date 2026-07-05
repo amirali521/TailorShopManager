@@ -13,9 +13,11 @@ import PrivacyPolicy from "./components/PrivacyPolicy";
 import ContactUs from "./components/ContactUs";
 import Footer from "./components/Footer";
 import PrivacyPage from "./components/PrivacyPage";
+import DesktopApp from "./components/DesktopApp";
+import DeleteAccountPage from "./components/DeleteAccountPage";
 
 export default function App() {
-  const [viewMode, setViewMode] = useState<"landing" | "privacyPage">("landing");
+  const [viewMode, setViewMode] = useState<"landing" | "privacyPage" | "desktopApp" | "deleteAccountPage">("landing");
   const [activeSection, setActiveSection] = useState("home");
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -81,6 +83,14 @@ export default function App() {
     return <PrivacyPage onBack={() => setViewMode("landing")} />;
   }
 
+  if (viewMode === "desktopApp") {
+    return <DesktopApp onBackToLanding={() => setViewMode("landing")} />;
+  }
+
+  if (viewMode === "deleteAccountPage") {
+    return <DeleteAccountPage onBack={() => setViewMode("landing")} />;
+  }
+
   return (
     <div id="atelier-landing-root" className="min-h-screen bg-[#FCFAF2] text-brand-charcoal font-sans antialiased selection:bg-brand-gold selection:text-white">
       
@@ -89,6 +99,7 @@ export default function App() {
         activeSection={activeSection} 
         onNavigate={handleNavigate} 
         onInstallClick={triggerDownloadApk} 
+        onDesktopPortalClick={() => setViewMode("desktopApp")}
       />
 
       {/* 1. HERO HIGHLIGHTS SECTION (HOME PAGE) */}
@@ -189,7 +200,11 @@ export default function App() {
       </main>
 
       {/* Footer containing tear off coupon replica */}
-      <Footer onNavigate={handleNavigate} />
+      <Footer 
+        onNavigate={handleNavigate} 
+        onPrivacyPolicyClick={() => setViewMode("privacyPage")}
+        onDeleteAccountClick={() => setViewMode("deleteAccountPage")}
+      />
 
 
       {/* INSTALLATION DRAWER MODAL (CARDBOARD INSPIRED THEME DESIGN) */}

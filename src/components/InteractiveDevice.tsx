@@ -62,17 +62,17 @@ export default function InteractiveDevice({ children }: InteractiveDeviceProps) 
   };
 
   return (
-    <div id="tailor-app-simulator" className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start w-full text-left">
+    <div id="tailor-app-simulator" className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start justify-between w-full text-left">
       
       {/* 1. HERO CONTENT COLUMN */}
       {children && (
-        <div className="lg:col-span-7 lg:row-start-1 w-full">
+        <div className="flex-1 max-w-2xl w-full">
           {children}
         </div>
       )}
 
       {/* 2. SIMULATED DEVICE (UPPER RIGHT ON DESKTOP, SECOND ON MOBILE) */}
-      <div className="lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-32 flex justify-center w-full">
+      <div className="lg:sticky lg:top-32 flex justify-center lg:justify-end shrink-0 w-full lg:w-auto">
         <div className="relative group shrink-0">
         {/* Glow effect surrounding phone */}
         <div className="absolute -inset-1 rounded-[42px] bg-gradient-to-tr from-brand-gold via-brand-slate to-brand-moss opacity-15 blur-lg group-hover:opacity-25 transition duration-1000"></div>
