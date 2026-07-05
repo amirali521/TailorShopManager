@@ -64,7 +64,7 @@ export default function Header({ activeSection, onNavigate, onInstallClick, onDe
           </div>
 
           {/* Desktop Navigation */}
-          <nav id="desktop-nav" className="hidden md:flex items-center gap-8">
+          <nav id="desktop-nav" className="hidden lg:flex items-center gap-8">
             {navLinks.map((link) => (
               <button
                 key={link.id}
@@ -85,7 +85,7 @@ export default function Header({ activeSection, onNavigate, onInstallClick, onDe
           </nav>
 
           {/* Action Buttons */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-3">
             {onDesktopPortalClick && (
               <button
                 id="header-desktop-portal-btn"
@@ -106,11 +106,11 @@ export default function Header({ activeSection, onNavigate, onInstallClick, onDe
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="flex md:hidden items-center gap-2">
+          <div className="flex lg:hidden items-center gap-2">
             <button
               id="mobile-menu-toggle"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 text-brand-slate hover:text-brand-charcoal focus:outline-none relative -top-2 -right-1.5 transition-all"
+              className="p-2 text-brand-slate hover:text-brand-charcoal focus:outline-none transition-all flex items-center justify-center"
             >
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -120,7 +120,7 @@ export default function Header({ activeSection, onNavigate, onInstallClick, onDe
 
       {/* Mobile Drawer Navigation */}
       {isMobileMenuOpen && (
-        <div id="mobile-menu-drawer" className="md:hidden bg-brand-cream border-b border-brand-gold/20 shadow-lg px-4 py-6 space-y-4">
+        <div id="mobile-menu-drawer" className="lg:hidden bg-brand-cream border-b border-brand-gold/20 shadow-lg px-4 py-6 space-y-4">
           <div className="flex flex-col gap-3">
             {navLinks.map((link) => (
               <button

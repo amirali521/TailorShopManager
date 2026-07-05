@@ -761,10 +761,10 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
           
           {/* TAB 1: CUSTOMERS HUB */}
           {activeTab === "customers" && (
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden animate-fadeIn">
+            <div className="flex-1 flex flex-col xl:flex-row overflow-hidden animate-fadeIn">
               
               {/* Mobile customer sub-navigation */}
-              <div className="md:hidden flex bg-white border-b border-zinc-150 py-2.5 px-4 justify-between items-center shrink-0">
+              <div className="xl:hidden flex bg-white border-b border-zinc-150 py-2.5 px-4 justify-between items-center shrink-0">
                 <div className="flex gap-1.5 w-full">
                   <button
                     onClick={() => setCustomerSubTab("list")}
@@ -800,7 +800,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
               </div>
 
               {/* Customer Left Column - Directory List */}
-              <div className={`w-full md:w-80 bg-white border-r border-zinc-150 flex-col shrink-0 ${customerSubTab === "list" ? "flex flex-1 md:flex-initial" : "hidden md:flex"}`}>
+              <div className={`w-full xl:w-80 bg-white border-r border-zinc-150 flex-col shrink-0 ${customerSubTab === "list" ? "flex flex-1 xl:flex-initial" : "hidden xl:flex"}`}>
                 
                 {/* Search Bar */}
                 <div className="p-4 border-b border-zinc-100 space-y-3">
@@ -881,7 +881,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
               </div>
 
               {/* Customer Middle Column - Interactive Editor Form */}
-              <div className={`flex-1 overflow-y-auto p-4 md:p-8 border-r border-zinc-150 ${customerSubTab === "form" ? "block" : "hidden md:block"}`}>
+              <div className={`flex-1 overflow-y-auto p-4 md:p-8 border-r border-zinc-150 ${customerSubTab === "form" ? "block" : "hidden xl:block"}`}>
                 <div className="max-w-2xl mx-auto space-y-6">
                   
                   <div className="text-left">
@@ -1006,7 +1006,7 @@ export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
               </div>
 
               {/* Customer Right Column - Retro Golden-Bordered Ticket Preview */}
-              <div className={`w-full md:w-96 bg-brand-cream/40 p-4 md:p-6 flex-col justify-start overflow-y-auto shrink-0 ${customerSubTab === "ticket" ? "flex flex-1 md:flex-initial" : "hidden md:flex"}`}>
+              <div className={`w-full xl:w-96 bg-brand-cream/40 p-4 md:p-6 flex-col justify-start overflow-y-auto shrink-0 ${customerSubTab === "ticket" ? "flex flex-1 xl:flex-initial" : "hidden xl:flex"}`}>
                 <span className="text-[10px] font-mono font-bold text-brand-gold tracking-widest block mb-4 uppercase text-center">
                   ⚡ CUSTOMER TICKET PREVIEW
                 </span>
