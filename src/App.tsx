@@ -178,8 +178,6 @@ export default function App() {
       {/* MAIN FOOTER */}
       <Footer 
         onNavigate={handleNavigate} 
-        onPrivacyPolicyClick={() => setView("privacy")} 
-        onDeleteAccountClick={() => setView("delete-account")} 
       />
 
     </div>
