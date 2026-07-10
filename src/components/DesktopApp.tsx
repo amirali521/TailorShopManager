@@ -1,1582 +1,1054 @@
-import { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect } from "react";
 import { 
-  Search, Plus, Trash2, Edit2, ShieldCheck, Printer, Share2, Check, 
-  FileText, DollarSign, RotateCcw, AlertCircle, ShoppingBag, Eye, User, 
-  LogOut, LogIn, Sparkles, Scissors, Users, Landmark, ClipboardList, 
-  Database, Wifi, WifiOff, X, HelpCircle, Save
+  ArrowLeft, LogOut, LogIn, User, Scissors, Check, X, ShieldCheck,
+  Search, Users, Box, Ruler, Settings, Plus, CreditCard, ChevronLeft,
+  Bell, Trash2, Edit2, FileText, Info, Save, Phone, MapPin, PlusCircle,
+  TrendingUp, TrendingDown, Layers, Download, CheckSquare, Sparkles,
+  Award, Compass, Shirt
 } from "lucide-react";
+import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { auth, googleProvider } from "../lib/firebase";
 import { 
-  collection, doc, setDoc, addDoc, updateDoc, deleteDoc, 
-  onSnapshot, query, where, getDocs
-} from "firebase/firestore";
-import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { db, auth, googleProvider } from "../lib/firebase";
-import { SIZING_TEMPLATES, SizingTemplate } from "../types";
+  firebaseService, 
+  FirestoreEmployee, 
+  FirestoreEmployeeWorkRecord, 
+  FirestoreEmployeePaymentRecord, 
+  FirestoreLedgerRecord, 
+  FirestorePaymentRecord 
+} from "../lib/firebaseService";
 
-// Firebase error handling schema as required by developer guidelines
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
+// Import types
+import { ActiveUser, Customer, Order, InventoryItem, ShopProfile, SizingCard, LedgerEntry } from "../types";
 
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
-
-// Interfaces for our state objects
-interface CustomerData {
-  id: string;
-  name: string;
-  phone: string;
-  address: string;
-  templateId: string;
-  customSizes: Record<string, string>;
-  userId: string;
-}
-
-interface WorkerData {
-  id: string;
-  name: string;
-  role: string;
-  unpaidWages: number;
-  completedCount: number;
-  userId: string;
-}
-
-interface OrderData {
-  id: string;
-  workerName: string;
-  task: string;
-  wage: number;
-  time: string;
-  userId: string;
-}
-
-interface InventoryData {
-  id: string;
-  name: string;
-  unitType: string;
-  cost: number;
-  price: number;
-  stock: number;
-  userId: string;
-}
+// Import custom workspaces
+import DashboardStats from "./DashboardStats";
+import CustomerWorkspace from "./CustomerWorkspace";
+import OrdersWorkspace from "./OrdersWorkspace";
+import InventoryWorkspace from "./InventoryWorkspace";
+import SettingsWorkspace from "./SettingsWorkspace";
+import InvoiceModal from "./InvoiceModal";
+import { Template } from "./MeasurementTemplates";
 
 interface DesktopAppProps {
   onBackToLanding: () => void;
 }
 
 export default function DesktopApp({ onBackToLanding }: DesktopAppProps) {
-  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"customers" | "workers" | "inventory">("customers");
-  
-  // Mobile customer view state
-  const [customerSubTab, setCustomerSubTab] = useState<"list" | "form" | "ticket">("list");
-  
-  // Real-time synchronization states
-  const [customers, setCustomers] = useState<CustomerData[]>([]);
-  const [workers, setWorkers] = useState<WorkerData[]>([]);
-  const [orders, setOrders] = useState<OrderData[]>([]);
-  const [inventory, setInventory] = useState<InventoryData[]>([]);
-  
-  // Local loading / sync states
-  const [syncStatus, setSyncStatus] = useState<"connected" | "disconnected" | "offline">("offline");
+  // Auth & Global states
+  const [activeUser, setActiveUser] = useState<ActiveUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "customers" | "orders" | "inventory" | "settings">("dashboard");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Selection & Form states
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerData | null>(null);
-  const [customerSearch, setCustomerSearch] = useState("");
-  
-  // Customer Editor Form state
-  const [editCustName, setEditCustName] = useState("");
-  const [editCustPhone, setEditCustPhone] = useState("");
-  const [editCustAddress, setEditCustAddress] = useState("");
-  const [editCustTemplateId, setEditCustTemplateId] = useState(SIZING_TEMPLATES[0].id);
-  const [editCustSizes, setEditCustSizes] = useState<Record<string, string>>({});
-  const [isEditingCust, setIsEditingCust] = useState(false); // false = create new, true = update existing
+  // Core Datasets
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [shopProfile, setShopProfile] = useState<ShopProfile>({
+    shopName: "Golden Shears Atelier",
+    shopPhone: "+92 300 9876543",
+    shopAddress: "Bespoke Row, Artisanal Sector, Karachi",
+    currency: "₨",
+    logoIcon: "Scissors",
+    isConfigured: true
+  });
 
-  // Worker Form states
-  const [newWorkerName, setNewWorkerName] = useState("");
-  const [newWorkerRole, setNewWorkerRole] = useState("Master Tailor");
-  const [selectedWorkerId, setSelectedWorkerId] = useState("");
-  const [pieceTaskName, setPieceTaskName] = useState("Classic Coat Stitching");
-  const [pieceTaskWage, setPieceTaskWage] = useState(120);
-  const [payoutSlip, setPayoutSlip] = useState<{ name: string; amount: number; time: string } | null>(null);
+  // Extra Firestore Collections States for advanced multi-tenant schemas
+  const [employees, setEmployees] = useState<FirestoreEmployee[]>([]);
+  const [employeeWorkRecords, setEmployeeWorkRecords] = useState<FirestoreEmployeeWorkRecord[]>([]);
+  const [employeePaymentRecords, setEmployeePaymentRecords] = useState<FirestoreEmployeePaymentRecord[]>([]);
+  const [ledgerRecords, setLedgerRecords] = useState<FirestoreLedgerRecord[]>([]);
+  const [paymentRecords, setPaymentRecords] = useState<FirestorePaymentRecord[]>([]);
+  const [sizingTemplates, setSizingTemplates] = useState<Template[]>([]);
 
-  // Inventory Form states
-  const [newFabricName, setNewFabricName] = useState("");
-  const [newFabricUnit, setNewFabricUnit] = useState("yards");
-  const [newFabricCost, setNewFabricCost] = useState(15);
-  const [newFabricPrice, setNewFabricPrice] = useState(35);
-  const [newFabricStock, setNewFabricStock] = useState(50);
+  // Active items for detailed view
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [activeInvoiceOrder, setActiveInvoiceOrder] = useState<Order | null>(null);
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
 
-  // Retro printer/share overlay mock simulation states
-  const [isPrinted, setIsPrinted] = useState(false);
-  const [isShared, setIsShared] = useState(false);
+  // Helper states for launching modals/wizards from Dashboard
+  const [showCommissionFormFromDashboard, setShowCommissionFormFromDashboard] = useState(false);
+  const [preSelectedCustomer, setPreSelectedCustomer] = useState<Customer | null>(null);
 
-  // Track Auth and initialize
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // 1. Firebase Auth State Observer & Real-time Firestore Sync
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setAuthLoading(false);
+    let unsubscribeFirestore: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
-        setSyncStatus("connected");
+        const loggedUser: ActiveUser = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          isGuest: false
+        };
+        setActiveUser(loggedUser);
+
+        if (unsubscribeFirestore) {
+          unsubscribeFirestore();
+        }
+
+        // Initialize Shop Profile in Firestore if needed
+        firebaseService.saveShopProfile(user.uid, {
+          shopName: "Golden Shears Atelier",
+          shopPhone: "+92 300 9876543",
+          shopAddress: "Bespoke Row, Artisanal Sector, Karachi",
+          currency: "₨",
+          logoIcon: "Scissors",
+          isConfigured: true
+        } as any, user.displayName || "Master Tailor", user.email || "");
+
+        // Real-time listener for all 11 collections partitioned by tenant user.uid
+        unsubscribeFirestore = firebaseService.subscribeToAllData(user.uid, (data) => {
+          setCustomers(data.customers);
+          setOrders(data.orders);
+          setInventory(data.inventory);
+          setShopProfile(data.shopProfile);
+          setEmployees(data.employees);
+          setEmployeeWorkRecords(data.employeeWorkRecords);
+          setEmployeePaymentRecords(data.employeePaymentRecords);
+          setLedgerRecords(data.ledgerRecords);
+          setPaymentRecords(data.paymentRecords);
+          setSizingTemplates(data.sizingTemplates);
+        });
+
       } else {
-        setSyncStatus("offline");
-        // Reset state to fallback mock data for guest sandbox
-        initializeMockSandbox();
+        if (unsubscribeFirestore) {
+          unsubscribeFirestore();
+          unsubscribeFirestore = null;
+        }
+
+        // Fallback check for offline guest session
+        const cachedGuest = localStorage.getItem("atelier_guest_user");
+        if (cachedGuest) {
+          const guest = JSON.parse(cachedGuest);
+          setActiveUser(guest);
+          loadUserData(guest.uid);
+        } else {
+          setActiveUser(null);
+        }
       }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Sync data in real-time when user logs in
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const uid = currentUser.uid;
-
-    // Real-time synchronization of CUSTOMERS
-    const qCustomers = query(collection(db, "customers"), where("userId", "==", uid));
-    const unsubCust = onSnapshot(qCustomers, (snap) => {
-      const list: CustomerData[] = [];
-      snap.forEach((doc) => {
-        list.push({ id: doc.id, ...doc.data() } as CustomerData);
-      });
-      setCustomers(list);
-      if (list.length > 0 && !selectedCustomer) {
-        setSelectedCustomer(list[0]);
-      }
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, "customers");
-    });
-
-    // Real-time synchronization of WORKERS
-    const qWorkers = query(collection(db, "workers"), where("userId", "==", uid));
-    const unsubWorkers = onSnapshot(qWorkers, (snap) => {
-      const list: WorkerData[] = [];
-      snap.forEach((doc) => {
-        list.push({ id: doc.id, ...doc.data() } as WorkerData);
-      });
-      setWorkers(list);
-      if (list.length > 0 && !selectedWorkerId) {
-        setSelectedWorkerId(list[0].id);
-      }
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, "workers");
-    });
-
-    // Real-time synchronization of ORDERS (piecework logs)
-    const qOrders = query(collection(db, "orders"), where("userId", "==", uid));
-    const unsubOrders = onSnapshot(qOrders, (snap) => {
-      const list: OrderData[] = [];
-      snap.forEach((doc) => {
-        list.push({ id: doc.id, ...doc.data() } as OrderData);
-      });
-      // Sort orders descending
-      list.sort((a,b) => b.id.localeCompare(a.id));
-      setOrders(list);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, "orders");
-    });
-
-    // Real-time synchronization of INVENTORY
-    const qInventory = query(collection(db, "inventory"), where("userId", "==", uid));
-    const unsubInventory = onSnapshot(qInventory, (snap) => {
-      const list: InventoryData[] = [];
-      snap.forEach((doc) => {
-        list.push({ id: doc.id, ...doc.data() } as InventoryData);
-      });
-      setInventory(list);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, "inventory");
+      setLoading(false);
     });
 
     return () => {
-      unsubCust();
-      unsubWorkers();
-      unsubOrders();
-      unsubInventory();
-    };
-  }, [currentUser]);
-
-  // Handle active customer template selection
-  const activeTemplate = SIZING_TEMPLATES.find(t => t.id === (isEditingCust ? editCustTemplateId : editCustTemplateId)) || SIZING_TEMPLATES[0];
-
-  const initializeMockSandbox = () => {
-    // Generate lovely mock sandbox dataset for guests
-    const mockCustomers: CustomerData[] = [
-      {
-        id: "cust_1",
-        name: "Lord Julian Thorne",
-        phone: "+44 20 7946 0192",
-        address: "12 Savile Row, Mayfair, London, W1S 3PF",
-        templateId: "mens_suit",
-        customSizes: {
-          jacket_length: "29.5",
-          shoulder: "18.2",
-          chest: "41.0",
-          waist: "36.5",
-          sleeve_length: "25.2",
-          trouser_length: "41.5",
-          trouser_waist: "34.0",
-          trouser_seat: "40.5",
-          trouser_inseam: "31.0",
-          trouser_bottom: "8.5"
-        },
-        userId: "guest"
-      },
-      {
-        id: "cust_2",
-        name: "Arthur Pendelton",
-        phone: "+44 7700 900077",
-        address: "8 King Street, St. James's, London",
-        templateId: "dress_shirt",
-        customSizes: {
-          length: "31.0",
-          shoulder: "18.5",
-          chest: "40.0",
-          waist: "35.5",
-          sleeve_length: "26.0",
-          cuff: "9.5",
-          neck: "16.5"
-        },
-        userId: "guest"
+      unsubscribeAuth();
+      if (unsubscribeFirestore) {
+        unsubscribeFirestore();
       }
-    ];
+    };
+  }, []);
 
-    const mockWorkers: WorkerData[] = [
-      { id: "work_1", name: "Master Arthur Pendelton", role: "Master Pattern Cutter", unpaidWages: 280, completedCount: 8, userId: "guest" },
-      { id: "work_2", name: "Clara Jenkins", role: "Coat & Suit Specialist", unpaidWages: 450, completedCount: 12, userId: "guest" },
-      { id: "work_3", name: "Edward Finch", role: "Button & Trim Artisan", unpaidWages: 95, completedCount: 19, userId: "guest" }
-    ];
+  // 2. Synchronize Data to LocalStorage ONLY in Guest mode when states change
+  useEffect(() => {
+    if (activeUser && activeUser.isGuest) {
+      localStorage.setItem(`atelier_customers_${activeUser.uid}`, JSON.stringify(customers));
+    }
+  }, [customers, activeUser]);
 
-    const mockOrders: OrderData[] = [
-      { id: "order_1", workerName: "Clara Jenkins", task: "Bespoke Coat Linings", wage: 180, time: "Yesterday, 2:15 PM", userId: "guest" },
-      { id: "order_2", workerName: "Arthur Pendelton", task: "Double Breasted Velvet Cutting", wage: 120, time: "Yesterday, 11:30 AM", userId: "guest" }
-    ];
+  useEffect(() => {
+    if (activeUser && activeUser.isGuest) {
+      localStorage.setItem(`atelier_orders_${activeUser.uid}`, JSON.stringify(orders));
+    }
+  }, [orders, activeUser]);
 
-    const mockInventory: InventoryData[] = [
-      { id: "inv_1", name: "Egyptian Giza Cotton (Cream)", unitType: "yards", cost: 15, price: 35, stock: 120, userId: "guest" },
-      { id: "inv_2", name: "Irish Heritage Linen (Natural)", unitType: "yards", cost: 22, price: 48, stock: 85, userId: "guest" },
-      { id: "inv_3", name: "Super 120s Loro Piana Wool", unitType: "yards", cost: 45, price: 95, stock: 60, userId: "guest" }
-    ];
+  useEffect(() => {
+    if (activeUser && activeUser.isGuest) {
+      localStorage.setItem(`atelier_inventory_${activeUser.uid}`, JSON.stringify(inventory));
+    }
+  }, [inventory, activeUser]);
 
-    setCustomers(mockCustomers);
-    setSelectedCustomer(mockCustomers[0]);
-    setWorkers(mockWorkers);
-    setSelectedWorkerId(mockWorkers[0].id);
-    setOrders(mockOrders);
-    setInventory(mockInventory);
+  useEffect(() => {
+    if (activeUser && activeUser.isGuest) {
+      localStorage.setItem(`atelier_shop_${activeUser.uid}`, JSON.stringify(shopProfile));
+    }
+  }, [shopProfile, activeUser]);
 
-    // Sync state for new custom customer setup
-    resetCustomerFormFields(mockCustomers[0]);
-  };
+  useEffect(() => {
+    if (activeUser && activeUser.isGuest) {
+      localStorage.setItem(`atelier_templates_${activeUser.uid}`, JSON.stringify(sizingTemplates));
+    }
+  }, [sizingTemplates, activeUser]);
 
-  const resetCustomerFormFields = (cust?: CustomerData) => {
-    if (cust) {
-      setEditCustName(cust.name);
-      setEditCustPhone(cust.phone);
-      setEditCustAddress(cust.address);
-      setEditCustTemplateId(cust.templateId);
-      setEditCustSizes(cust.customSizes);
-      setIsEditingCust(true);
+  // 3. Dynamic Seeder for first-time / fresh directories
+  const loadUserData = (uid: string) => {
+    // Customers Seed
+    const localCust = localStorage.getItem(`atelier_customers_${uid}`);
+    let loadedCusts: Customer[] = [];
+    if (localCust) {
+      loadedCusts = JSON.parse(localCust);
+      setCustomers(loadedCusts);
     } else {
-      setEditCustName("");
-      setEditCustPhone("");
-      setEditCustAddress("");
-      const firstTpl = SIZING_TEMPLATES[0];
-      setEditCustTemplateId(firstTpl.id);
-      // pre-populate with default values from template
-      const defaultSizes = firstTpl.fields.reduce((acc, f) => ({ ...acc, [f.name]: f.value }), {} as Record<string, string>);
-      setEditCustSizes(defaultSizes);
-      setIsEditingCust(false);
+      loadedCusts = [
+        {
+          id: "cust-amirali",
+          name: "Amirali Khan",
+          phone: "+92 300 4584852",
+          address: "Bespoke Avenue, Block 4, Karachi",
+          debtDue: 120,
+          paidSnapshot: 150,
+          totalBilled: 270,
+          ledgerHistory: [
+            { id: "ledger-1", type: "bill", amount: 270, description: "Bespoke Suit + Golden Lining Cut", date: "08 Jul, 2026" },
+            { id: "ledger-2", type: "payment", amount: 150, description: "Initial Deposit Paid", date: "08 Jul, 2026" }
+          ],
+          sizingCards: [
+            {
+              id: "card-amirali-1",
+              templateId: "shalwar_kameez",
+              templateName: "Measurements / شلوار-قمیص",
+              createdDate: "08 Jul, 2026",
+              fitPreference: "Regular",
+              specialNotes: "Prefers wider sleeve cuffs to accommodate left-hand watch dial",
+              values: {
+                length: "40.5\"",
+                shoulder: "18\"",
+                sleeve: "24.5\"",
+                chest: "22.5\"",
+                collar: "15.5\"",
+                waist: "21.5\"",
+                ghera: "23\"",
+                shalwar_length: "38.5\"",
+                shalwar_bottom: "8\""
+              }
+            }
+          ]
+        },
+        {
+          id: "cust-sarah",
+          name: "Sarah Jenkins",
+          phone: "+44 7700 900077",
+          address: "Savile Row Mews, London",
+          debtDue: 0,
+          paidSnapshot: 450,
+          totalBilled: 450,
+          ledgerHistory: [
+            { id: "ledger-3", type: "bill", amount: 450, description: "Artisanal Velvet Blazer Custom Stitching", date: "09 Jul, 2026" },
+            { id: "ledger-4", type: "payment", amount: 450, description: "Paid in full via Bank Transfer", date: "09 Jul, 2026" }
+          ],
+          sizingCards: [
+            {
+              id: "card-sarah-1",
+              templateId: "mens_suit",
+              templateName: "Two-Piece Bespoke Suit",
+              createdDate: "09 Jul, 2026",
+              fitPreference: "Slim",
+              specialNotes: "Peak lapel style, velvet lining trims",
+              values: {
+                jacket_length: "28\"",
+                shoulder: "16.5\"",
+                chest: "35\"",
+                waist: "31\"",
+                sleeve_length: "23.5\"",
+                trouser_length: "39\"",
+                trouser_waist: "28\"",
+                trouser_seat: "36\""
+              }
+            }
+          ]
+        }
+      ];
+      setCustomers(loadedCusts);
+    }
+
+    // Orders Seed
+    const localOrd = localStorage.getItem(`atelier_orders_${uid}`);
+    if (localOrd) {
+      setOrders(JSON.parse(localOrd));
+    } else {
+      setOrders([
+        {
+          id: "order-1",
+          customerId: "cust-amirali",
+          customerName: "Amirali Khan",
+          clothingType: "Shalwar Kameez / شلوار قمیص",
+          values: {
+            length: "40.5\"",
+            shoulder: "18\"",
+            sleeve: "24.5\"",
+            chest: "22.5\"",
+            collar: "15.5\"",
+            waist: "21.5\"",
+            ghera: "23\"",
+            shalwar_length: "38.5\"",
+            shalwar_bottom: "8\""
+          },
+          fitPreference: "Regular",
+          specialNotes: "Prefers wider sleeve cuffs to accommodate left-hand watch dial",
+          totalCost: 270,
+          depositPaid: 150,
+          status: "Stitching",
+          dueDate: "2026-07-15",
+          createdDate: "08 Jul, 2026",
+          fabricUsed: "Premium Boski Silk Roll #4"
+        },
+        {
+          id: "order-2",
+          customerId: "cust-sarah",
+          customerName: "Sarah Jenkins",
+          clothingType: "Two-Piece Bespoke Suit",
+          values: {
+            jacket_length: "28\"",
+            shoulder: "16.5\"",
+            chest: "35\"",
+            waist: "31\"",
+            sleeve_length: "23.5\"",
+            trouser_length: "39\"",
+            trouser_waist: "28\"",
+            trouser_seat: "36\""
+          },
+          fitPreference: "Slim",
+          specialNotes: "Peak lapel style, velvet lining trims",
+          totalCost: 450,
+          depositPaid: 450,
+          status: "Ready",
+          dueDate: "2026-07-12",
+          createdDate: "09 Jul, 2026",
+          fabricUsed: "Classic Italian Velvet Roll"
+        }
+      ]);
+    }
+
+    // Inventory Seed
+    const localInv = localStorage.getItem(`atelier_inventory_${uid}`);
+    if (localInv) {
+      setInventory(JSON.parse(localInv));
+    } else {
+      setInventory([
+        { id: "inv-1", name: "Premium Irish Linen (White)", colorCode: "#FFFFFF", type: "Fabric", quantity: 45, safetyLevel: 10, unit: "Yards", costPrice: 12.5, supplier: "Linen Traders", lastUpdated: "09 Jul, 2026" },
+        { id: "inv-2", name: "Classic Italian Velvet Roll", colorCode: "#4A0E17", type: "Fabric", quantity: 6, safetyLevel: 8, unit: "Yards", costPrice: 28.0, supplier: "Savile Textile Co.", lastUpdated: "10 Jul, 2026" },
+        { id: "inv-3", name: "Premium Boski Silk Roll #4", colorCode: "#FCFAF0", type: "Fabric", quantity: 28, safetyLevel: 5, unit: "Yards", costPrice: 22.0, supplier: "Orient Silk Mills", lastUpdated: "10 Jul, 2026" },
+        { id: "inv-4", name: "Luxury Brass Button Spindles", colorCode: "#D4AF37", type: "Button", quantity: 250, safetyLevel: 50, unit: "Pcs", costPrice: 0.75, supplier: "Artisan Trims Co.", lastUpdated: "08 Jul, 2026" },
+        { id: "inv-5", name: "Reinforced Polyester Threads (Gold)", colorCode: "#FFD700", type: "Thread", quantity: 3, safetyLevel: 5, unit: "Spools", costPrice: 4.5, supplier: "Coats Threads Ltd.", lastUpdated: "09 Jul, 2026" }
+      ]);
+    }
+
+    // Shop Profile Seed
+    const localShop = localStorage.getItem(`atelier_shop_${uid}`);
+    if (localShop) {
+      setShopProfile(JSON.parse(localShop));
+    } else {
+      setShopProfile({
+        shopName: "Royal Atelier",
+        shopPhone: "+92 300 9876543",
+        shopAddress: "Bespoke Row, Sector 4, Karachi, Pakistan",
+        currency: "₨",
+        logoIcon: "Scissors",
+        isConfigured: true
+      });
+    }
+
+    // Sizing Templates Seed
+    const localTemplates = localStorage.getItem(`atelier_templates_${uid}`);
+    if (localTemplates) {
+      setSizingTemplates(JSON.parse(localTemplates));
+    } else {
+      setSizingTemplates([]);
     }
   };
 
-  const handleTemplateChange = (tplId: string) => {
-    setEditCustTemplateId(tplId);
-    const targetTpl = SIZING_TEMPLATES.find(t => t.id === tplId) || SIZING_TEMPLATES[0];
-    const defaultSizes = targetTpl.fields.reduce((acc, f) => ({ ...acc, [f.name]: f.value }), {} as Record<string, string>);
-    setEditCustSizes(defaultSizes);
-  };
-
-  const handleSizeInputChange = (fieldName: string, value: string) => {
-    setEditCustSizes(prev => ({
-      ...prev,
-      [fieldName]: value
-    }));
-  };
-
-  // SIGN IN AND SIGN OUT HANDLERS
+  // 4. Authenticators Handlers
   const handleGoogleSignIn = async () => {
     try {
-      setAuthLoading(true);
+      setLoading(true);
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Sign in failed:", error);
-      alert("Auth Pop-up was blocked. If running in a preview iframe, please open the application in a new tab using the URL in the right panel to complete registration securely.");
-      setAuthLoading(false);
+      triggerToast("🔑 Signed in successfully with Google!");
+    } catch (error: any) {
+      console.error("Sign-in error:", error);
+      triggerToast(`⚠️ Sign-in failed: ${error.message || "Unknown error"}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleUserSignOut = async () => {
+  const handleGuestSignIn = () => {
+    setLoading(true);
+    const guestUser: ActiveUser = {
+      uid: "guest-user-session",
+      email: "guest@offline-sandbox",
+      displayName: "Guest Master",
+      photoURL: null,
+      isGuest: true
+    };
+    localStorage.setItem("atelier_guest_user", JSON.stringify(guestUser));
+    setActiveUser(guestUser);
+    loadUserData(guestUser.uid);
+    triggerToast("🍂 Entered Offline Guest Sandbox!");
+    setLoading(false);
+  };
+
+  const handleSignOut = async () => {
     try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Sign out failed:", error);
-    }
-  };
-
-  // FIRESTORE CRUD ACTIONS
-
-  // 1. SAVE CUSTOMER
-  const handleSaveCustomer = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!editCustName.trim()) return;
-
-    const dataPayload = {
-      name: editCustName,
-      phone: editCustPhone || "No Phone",
-      address: editCustAddress || "No Address",
-      templateId: editCustTemplateId,
-      customSizes: editCustSizes,
-      userId: currentUser ? currentUser.uid : "guest"
-    };
-
-    if (currentUser) {
-      const collectionName = "customers";
-      try {
-        if (isEditingCust && selectedCustomer) {
-          const docId = selectedCustomer.id;
-          await setDoc(doc(db, collectionName, docId), dataPayload);
-        } else {
-          const newDocId = "cust_" + Date.now();
-          await setDoc(doc(db, collectionName, newDocId), dataPayload);
-        }
-      } catch (error) {
-        handleFirestoreError(error, isEditingCust ? OperationType.UPDATE : OperationType.CREATE, `${collectionName}/${isEditingCust ? selectedCustomer?.id : 'new'}`);
-      }
-    } else {
-      // Guest local state fallback
-      if (isEditingCust && selectedCustomer) {
-        const updated = customers.map(c => c.id === selectedCustomer.id ? { ...c, ...dataPayload } : c);
-        setCustomers(updated);
-        setSelectedCustomer({ id: selectedCustomer.id, ...dataPayload });
+      setLoading(true);
+      if (activeUser?.isGuest) {
+        localStorage.removeItem("atelier_guest_user");
       } else {
-        const newCust = { id: "cust_" + Date.now(), ...dataPayload };
-        setCustomers([...customers, newCust]);
-        setSelectedCustomer(newCust);
+        await signOut(auth);
       }
-    }
-    alert(isEditingCust ? "Customer measurements updated successfully!" : "New customer registered in database!");
-    resetCustomerFormFields();
-    setCustomerSubTab("ticket");
-  };
-
-  // 2. DELETE CUSTOMER
-  const handleDeleteCustomer = async (custId: string) => {
-    if (!confirm("Are you sure you want to permanently erase this customer record?")) return;
-
-    if (currentUser) {
-      const collectionName = "customers";
-      try {
-        await deleteDoc(doc(db, collectionName, custId));
-        if (selectedCustomer?.id === custId) {
-          setSelectedCustomer(null);
-        }
-      } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `${collectionName}/${custId}`);
-      }
-    } else {
-      const updated = customers.filter(c => c.id !== custId);
-      setCustomers(updated);
-      if (selectedCustomer?.id === custId) {
-        setSelectedCustomer(updated[0] || null);
-      }
+      setActiveUser(null);
+      setCustomers([]);
+      setOrders([]);
+      setInventory([]);
+      triggerToast("🔒 Signed out successfully.");
+    } catch (error: any) {
+      console.error("Sign-out error:", error);
+      triggerToast("⚠️ Sign-out failed.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 3. REGISTER STAFF MEMBER
-  const handleRegisterWorker = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!newWorkerName.trim()) return;
+  // 5. Data Mutations Handlers
 
-    const payload = {
-      name: newWorkerName,
-      role: newWorkerRole,
-      unpaidWages: 0,
-      completedCount: 0,
-      userId: currentUser ? currentUser.uid : "guest"
-    };
-
-    if (currentUser) {
-      const collectionName = "workers";
+  // Customers
+  const handleAddCustomer = async (cData: { name: string; phone: string; address: string }) => {
+    if (activeUser && !activeUser.isGuest) {
       try {
-        const newWorkerId = "work_" + Date.now();
-        await setDoc(doc(db, collectionName, newWorkerId), payload);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.CREATE, `${collectionName}/new`);
+        await firebaseService.addCustomer(activeUser.uid, cData);
+        triggerToast(`👤 Registered "${cData.name}" portfolio in Firestore!`);
+      } catch (err: any) {
+        console.error("Firestore addCustomer error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
       }
     } else {
-      const newW = { id: "work_" + Date.now(), ...payload };
-      setWorkers([...workers, newW]);
-    }
-    setNewWorkerName("");
-    alert("New staff member registered in your shop directory!");
-  };
-
-  // 4. LOG PIECE-WORK TASK ORDER
-  const handleLogPieceWork = async (e: FormEvent) => {
-    e.preventDefault();
-    const w = workers.find(work => work.id === selectedWorkerId);
-    if (!w) return;
-
-    const orderPayload = {
-      workerName: w.name,
-      task: pieceTaskName,
-      wage: Number(pieceTaskWage),
-      time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + " (Synced)",
-      userId: currentUser ? currentUser.uid : "guest"
-    };
-
-    if (currentUser) {
-      try {
-        // Create order
-        const newOrderId = "order_" + Date.now();
-        await setDoc(doc(db, "orders", newOrderId), orderPayload);
-
-        // Update worker's parameters in Firestore
-        const workerRef = doc(db, "workers", w.id);
-        await updateDoc(workerRef, {
-          unpaidWages: w.unpaidWages + Number(pieceTaskWage),
-          completedCount: w.completedCount + 1
-        });
-      } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, `orders/new_and_workers_update`);
-      }
-    } else {
-      // Guest update
-      const newOrder: OrderData = {
-        id: "order_" + Date.now(),
-        ...orderPayload
+      const newCust: Customer = {
+        id: "cust-" + Date.now(),
+        name: cData.name,
+        phone: cData.phone || "No Mobile Line",
+        address: cData.address || "No Workshop Address",
+        debtDue: 0,
+        paidSnapshot: 0,
+        totalBilled: 0,
+        ledgerHistory: [],
+        sizingCards: []
       };
-      setOrders([newOrder, ...orders]);
-      setWorkers(workers.map(work => {
-        if (work.id === w.id) {
+      setCustomers([newCust, ...customers]);
+      triggerToast(`👤 Registered "${newCust.name}" portfolio!`);
+    }
+  };
+
+  const handleDeleteCustomer = async (id: string) => {
+    if (activeUser && !activeUser.isGuest) {
+      try {
+        await firebaseService.deleteCustomer(activeUser.uid, id);
+        if (selectedCustomerId === id) setSelectedCustomerId(null);
+        triggerToast("🗑️ Client profile soft-deleted from Firestore.");
+      } catch (err: any) {
+        console.error("Firestore deleteCustomer error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
+      }
+    } else {
+      setCustomers(customers.filter(c => c.id !== id));
+      setOrders(orders.filter(o => o.customerId !== id));
+      if (selectedCustomerId === id) setSelectedCustomerId(null);
+      triggerToast("🗑️ Client profile purged from offline directory.");
+    }
+  };
+
+  const handleUpdateCustomerDetails = async (id: string, updatedFields: Partial<Customer>) => {
+    if (activeUser && !activeUser.isGuest) {
+      try {
+        await firebaseService.updateCustomer(activeUser.uid, id, updatedFields);
+        triggerToast("✨ Customer portfolio updated in Firestore.");
+      } catch (err: any) {
+        console.error("Firestore updateCustomer error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
+      }
+    } else {
+      setCustomers(customers.map(c => c.id === id ? { ...c, ...updatedFields } : c));
+      triggerToast("✨ Customer portfolio updated.");
+    }
+  };
+
+  // Sizing Cards Booklet
+  const handleAddSizingCard = async (custId: string, cardData: Omit<SizingCard, "id" | "createdDate">) => {
+    if (activeUser && !activeUser.isGuest) {
+      try {
+        await firebaseService.addSizingCard(activeUser.uid, custId, cardData);
+        triggerToast("📏 Measurement blueprint archived in Firestore!");
+      } catch (err: any) {
+        console.error("Firestore addSizingCard error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
+      }
+    } else {
+      const newCard: SizingCard = {
+        id: "card-" + Date.now(),
+        createdDate: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+        ...cardData
+      };
+      setCustomers(customers.map(c => {
+        if (c.id === custId) {
           return {
-            ...work,
-            unpaidWages: work.unpaidWages + Number(pieceTaskWage),
-            completedCount: work.completedCount + 1
+            ...c,
+            sizingCards: [newCard, ...c.sizingCards]
           };
         }
-        return work;
+        return c;
       }));
+      triggerToast("📏 Measurement blueprint archived in booklet!");
     }
-
-    alert(`Successfully logged task for ${w.name}! Unpaid wage updated.`);
   };
 
-  // 5. WIPE STAFF UNPAID LEDGER (PAY OUT)
-  const handlePayoutWorker = async (workerId: string) => {
-    const w = workers.find(work => work.id === workerId);
-    if (!w || w.unpaidWages === 0) return;
-
-    if (!confirm(`Confirm cash payout of $${w.unpaidWages} to ${w.name}?`)) return;
-
-    setPayoutSlip({
-      name: w.name,
-      amount: w.unpaidWages,
-      time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + " (Live Payout)"
-    });
-
-    if (currentUser) {
+  const handleDeleteSizingCard = async (custId: string, cardId: string) => {
+    if (activeUser && !activeUser.isGuest) {
       try {
-        const workerRef = doc(db, "workers", w.id);
-        await updateDoc(workerRef, {
-          unpaidWages: 0
-        });
-      } catch (error) {
-        handleFirestoreError(error, OperationType.UPDATE, `workers/${w.id}`);
+        await firebaseService.deleteSizingCard(activeUser.uid, cardId);
+        triggerToast("🗑️ Sizing booklet entry soft-deleted from Firestore.");
+      } catch (err: any) {
+        console.error("Firestore deleteSizingCard error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
       }
     } else {
-      setWorkers(workers.map(work => {
-        if (work.id === w.id) {
-          return { ...work, unpaidWages: 0 };
+      setCustomers(customers.map(c => {
+        if (c.id === custId) {
+          return {
+            ...c,
+            sizingCards: c.sizingCards.filter(card => card.id !== cardId)
+          };
         }
-        return work;
+        return c;
       }));
+      triggerToast("🗑️ Sizing booklet entry removed.");
     }
   };
 
-  // 6. ADD FABRIC INVENTORY
-  const handleAddFabric = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!newFabricName.trim()) return;
-
-    const payload = {
-      name: newFabricName,
-      unitType: newFabricUnit,
-      cost: Number(newFabricCost),
-      price: Number(newFabricPrice),
-      stock: Number(newFabricStock),
-      userId: currentUser ? currentUser.uid : "guest"
-    };
-
-    if (currentUser) {
-      const collectionName = "inventory";
+  // Orders
+  const handleAddOrder = async (orderData: Omit<Order, "id" | "createdDate">) => {
+    if (activeUser && !activeUser.isGuest) {
       try {
-        const newInvId = "inv_" + Date.now();
-        await setDoc(doc(db, collectionName, newInvId), payload);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.CREATE, `${collectionName}/new`);
+        await firebaseService.addOrder(activeUser.uid, orderData);
+        triggerToast("🎟️ Sartorial commission active! Ledger dockets synchronized in Firestore.");
+      } catch (err: any) {
+        console.error("Firestore addOrder error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
       }
     } else {
-      const newI = { id: "inv_" + Date.now(), ...payload };
-      setInventory([...inventory, newI]);
-    }
+      const outstanding = Math.max(0, orderData.totalCost - orderData.depositPaid);
+      const newOrder: Order = {
+        id: "order-" + Date.now(),
+        createdDate: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+        ...orderData
+      };
 
-    setNewFabricName("");
-    alert("New stock material registered in warehouse!");
+      // Update Customer's Financial Ledgers
+      setCustomers(customers.map(c => {
+        if (c.id === orderData.customerId) {
+          const billLedger = {
+            id: "ledger-b-" + Date.now(),
+            type: "bill" as const,
+            amount: orderData.totalCost,
+            description: `Docket Draft: ${orderData.clothingType}`,
+            date: newOrder.createdDate
+          };
+          const paymentLedger = orderData.depositPaid > 0 ? {
+            id: "ledger-p-" + Date.now(),
+            type: "payment" as const,
+            amount: orderData.depositPaid,
+            description: "Initial Deposit Received",
+            date: newOrder.createdDate
+          } : null;
+
+          const ledgerHistory: LedgerEntry[] = [billLedger];
+          if (paymentLedger) ledgerHistory.push(paymentLedger);
+
+          return {
+            ...c,
+            totalBilled: c.totalBilled + orderData.totalCost,
+            paidSnapshot: c.paidSnapshot + orderData.depositPaid,
+            debtDue: c.debtDue + outstanding,
+            ledgerHistory: [...ledgerHistory, ...c.ledgerHistory]
+          };
+        }
+        return c;
+      }));
+
+      setOrders([newOrder, ...orders]);
+      triggerToast("🎟️ Sartorial commission active! Ledger dockets updated.");
+    }
   };
 
-  // 7. DELETE INVENTORY ITEM
-  const handleDeleteInventory = async (invId: string) => {
-    if (!confirm("Remove this stock material from database?")) return;
-
-    if (currentUser) {
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: Order["status"]) => {
+    if (activeUser && !activeUser.isGuest) {
       try {
-        await deleteDoc(doc(db, "inventory", invId));
-      } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `inventory/${invId}`);
+        const ordObj = orders.find(o => o.id === orderId);
+        const balance = ordObj ? Math.max(0, ordObj.totalCost - ordObj.depositPaid) : 0;
+
+        // Constraint check: On Delivered, collect final balance, log receipt & income ledger
+        if (newStatus === "Delivered" && balance > 0) {
+          await firebaseService.updateOrderStatus(activeUser.uid, orderId, newStatus, balance, "CASH");
+          triggerToast(`🔄 Delivered! Automatically logged balance receipt of ${shopProfile.currency}${balance}`);
+        } else {
+          await firebaseService.updateOrderStatus(activeUser.uid, orderId, newStatus);
+          triggerToast(`🔄 Workflow updated: Order status changed to "${newStatus}"`);
+        }
+      } catch (err: any) {
+        console.error("Firestore updateOrderStatus error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
       }
     } else {
-      setInventory(inventory.filter(i => i.id !== invId));
+      setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      triggerToast(`🔄 Workflow updated: Order status changed to "${newStatus}"`);
     }
   };
 
-  // Calculated metrics
-  const totalYards = inventory.reduce((acc, i) => acc + i.stock, 0);
-  const totalCostVal = inventory.reduce((acc, i) => acc + (i.cost * i.stock), 0);
-  const totalRetailVal = inventory.reduce((acc, i) => acc + (i.price * i.stock), 0);
-  const netProfitPotential = totalRetailVal - totalCostVal;
+  const handleDeleteOrder = async (orderId: string) => {
+    if (activeUser && !activeUser.isGuest) {
+      try {
+        await firebaseService.deleteOrder(activeUser.uid, orderId);
+        triggerToast("🗑️ Commission soft-deleted from Firestore.");
+      } catch (err: any) {
+        console.error("Firestore deleteOrder error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
+      }
+    } else {
+      const orderToDelete = orders.find(o => o.id === orderId);
+      if (!orderToDelete) return;
+      const balance = Math.max(0, orderToDelete.totalCost - orderToDelete.depositPaid);
 
-  const filteredCustomers = customers.filter(c => 
-    c.name.toLowerCase().includes(customerSearch.toLowerCase()) || 
-    c.phone.includes(customerSearch)
-  );
+      setCustomers(customers.map(c => {
+        if (c.id === orderToDelete.customerId) {
+          return {
+            ...c,
+            totalBilled: Math.max(0, c.totalBilled - orderToDelete.totalCost),
+            paidSnapshot: Math.max(0, c.paidSnapshot - orderToDelete.depositPaid),
+            debtDue: Math.max(0, c.debtDue - balance)
+          };
+        }
+        return c;
+      }));
 
-  return (
-    <div className="min-h-screen bg-[#F6F4EB] text-brand-charcoal font-sans antialiased flex flex-col">
-      
-      {/* Premium Desktop Header */}
-      <header className="bg-brand-charcoal border-b-2 border-brand-gold text-brand-cream px-4 md:px-8 py-4 shrink-0 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg">
-        <div className="flex items-center gap-3 text-center md:text-left flex-col md:flex-row">
-          <div className="w-10 h-10 rounded-full bg-brand-gold flex items-center justify-center text-brand-cream border border-brand-gold/30 shrink-0">
-            <Scissors className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="font-serif text-xl md:text-2xl font-bold tracking-wider uppercase flex items-center justify-center md:justify-start gap-2 flex-wrap">
-              <span>TailorShopManager</span>
-              <span className="text-[10px] bg-brand-gold px-2 py-0.5 rounded font-mono text-white tracking-widest">DESKTOP v1.2</span>
-            </h1>
-            <p className="text-[10px] tracking-widest text-brand-gold/80 font-mono uppercase">Bespoke Workshop Control Panel</p>
-          </div>
-        </div>
+      setOrders(orders.filter(o => o.id !== orderId));
+      triggerToast("🗑️ Commission ledger entry removed.");
+    }
+  };
 
-        {/* Database Connection / Auth Status indicator */}
-        <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 w-full md:w-auto">
-          <div className="flex items-center gap-2 px-3 py-1 bg-zinc-800/80 rounded border border-zinc-700 text-[11px] font-mono">
-            {syncStatus === "connected" ? (
-              <>
-                <Wifi className="w-3.5 h-3.5 text-[#4F5D2F]" />
-                <span className="text-zinc-300">Firestore Syncing: <strong className="text-white">Active</strong></span>
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-3.5 h-3.5 text-brand-gold animate-pulse" />
-                <span className="text-zinc-400">Sandbox Mode: <strong className="text-brand-gold">Guest Workspace</strong></span>
-              </>
-            )}
-          </div>
+  // Inventory
+  const handleAddItem = async (itemData: Omit<InventoryItem, "id" | "lastUpdated">) => {
+    if (activeUser && !activeUser.isGuest) {
+      try {
+        await firebaseService.addInventoryItem(activeUser.uid, itemData);
+        triggerToast(`📦 "${itemData.name}" added to Firestore stock!`);
+      } catch (err: any) {
+        console.error("Firestore addInventoryItem error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
+      }
+    } else {
+      const newItem: InventoryItem = {
+        id: "inv-" + Date.now(),
+        lastUpdated: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+        ...itemData
+      };
+      setInventory([newItem, ...inventory]);
+      triggerToast(`📦 "${newItem.name}" added to rolling stock!`);
+    }
+  };
 
-          {/* User auth layout */}
-          {authLoading ? (
-            <span className="text-xs text-zinc-400 font-mono">Authenticating...</span>
-          ) : currentUser ? (
-            <div className="flex items-center gap-3 pl-4 border-l border-zinc-700">
-              <div className="text-right">
-                <span className="block text-xs font-semibold text-white">{currentUser.displayName || "Tailor Proprietor"}</span>
-                <span className="block text-[9px] text-zinc-400 truncate max-w-[150px] font-mono">{currentUser.email}</span>
-              </div>
-              {currentUser.photoURL ? (
-                <img src={currentUser.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-brand-gold" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-brand-gold/20 text-brand-gold flex items-center justify-center font-bold text-xs uppercase">
-                  {currentUser.email ? currentUser.email[0] : "T"}
-                </div>
-              )}
-              <button 
-                onClick={handleUserSignOut}
-                className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition cursor-pointer"
-                title="Sign Out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={handleGoogleSignIn}
-              className="px-4 py-2 bg-brand-gold hover:bg-brand-gold-light text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-bold flex items-center gap-2 transition duration-300 shadow cursor-pointer"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>Sign In with Google</span>
-            </button>
-          )}
+  const handleUpdateStock = async (id: string, newQuantity: number) => {
+    if (activeUser && !activeUser.isGuest) {
+      try {
+        await firebaseService.updateInventoryItemStock(activeUser.uid, id, newQuantity);
+        triggerToast("🔄 Asset stock level updated in Firestore.");
+      } catch (err: any) {
+        console.error("Firestore updateStock error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
+      }
+    } else {
+      setInventory(inventory.map(item => {
+        if (item.id === id) {
+          return {
+            ...item,
+            quantity: newQuantity,
+            lastUpdated: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+          };
+        }
+        return item;
+      }));
+      triggerToast("🔄 Asset stock level updated.");
+    }
+  };
 
+  const handleDeleteItem = async (id: string) => {
+    if (activeUser && !activeUser.isGuest) {
+      try {
+        await firebaseService.deleteInventoryItem(activeUser.uid, id);
+        triggerToast("🗑️ Inventory roll soft-deleted in Firestore.");
+      } catch (err: any) {
+        console.error("Firestore deleteInventoryItem error:", err);
+        triggerToast(`⚠️ Firestore write failed: ${err.message || err}`);
+      }
+    } else {
+      setInventory(inventory.filter(i => i.id !== id));
+      triggerToast("🗑️ Inventory roll removed.");
+    }
+  };
+
+  // Sizing Template Handlers
+  const handleAddSizingTemplate = async (name: string, fields: string[]) => {
+    if (activeUser && !activeUser.isGuest) {
+      try {
+        await firebaseService.saveSizingTemplate(activeUser.uid, name, fields);
+        triggerToast(`✨ Custom template "${name}" synchronized in Firestore!`);
+      } catch (err: any) {
+        console.error("Firestore saveSizingTemplate error:", err);
+        triggerToast(`⚠️ Firestore template save failed: ${err.message || err}`);
+      }
+    } else {
+      const newTemplate: Template = {
+        id: "template-" + Date.now(),
+        name,
+        fields: fields.map(f => ({
+          key: f.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+          label: f,
+          placeholder: `e.g. Enter ${f}`
+        }))
+      };
+      const updated = [...sizingTemplates, newTemplate];
+      setSizingTemplates(updated);
+      triggerToast(`✨ Offline template "${name}" registered!`);
+    }
+  };
+
+  const handleDeleteSizingTemplate = async (templateId: string) => {
+    if (activeUser && !activeUser.isGuest) {
+      try {
+        await firebaseService.deleteSizingTemplate(activeUser.uid, templateId);
+        triggerToast("🗑️ Sizing template deleted from Firestore.");
+      } catch (err: any) {
+        console.error("Firestore deleteSizingTemplate error:", err);
+        triggerToast(`⚠️ Firestore template delete failed: ${err.message || err}`);
+      }
+    } else {
+      const updated = sizingTemplates.filter(t => t.id !== templateId);
+      setSizingTemplates(updated);
+      triggerToast("🗑️ Offline sizing template deleted.");
+    }
+  };
+
+  // Data Restore
+  const handleRestoreBackup = (restored: { customers: Customer[]; orders: Order[]; inventory: InventoryItem[]; shopProfile: ShopProfile }) => {
+    setCustomers(restored.customers);
+    setOrders(restored.orders);
+    setInventory(restored.inventory);
+    setShopProfile(restored.shopProfile);
+    triggerToast("📥 Sartorial backup successfully synced!");
+  };
+
+  const getShopLogoComponent = () => {
+    switch (shopProfile.logoIcon) {
+      case "Crown":
+        return <Award className="w-5 h-5 text-[#D97706]" />;
+      case "Royal":
+        return <Compass className="w-5 h-5 text-[#D97706]" />;
+      case "Velvet":
+        return <Sparkles className="w-5 h-5 text-[#D97706]" />;
+      case "Blazer":
+        return <Shirt className="w-5 h-5 text-[#D97706]" />;
+      default:
+        return <Scissors className="w-5 h-5 text-[#D97706]" />;
+    }
+  };
+
+  // Render Gatekeepers
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center text-white p-4 font-mono">
+        <div className="w-12 h-12 border-2 border-[#D97706] border-t-transparent rounded-full animate-spin mb-4" />
+        <span className="text-xs tracking-widest text-[#C2B280]">COMMILING ARTISAN OPERATING SYSTEM...</span>
+      </div>
+    );
+  }
+
+  if (!activeUser) {
+    /* STUNNING AUTHENTICATION LANDING SCREEN */
+    return (
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4 sm:p-6 text-zinc-100 font-sans selection:bg-[#D97706] selection:text-white">
+        <div className="w-full max-w-md bg-slate-900 border border-[#D97706]/20 rounded-2xl p-6 sm:p-8 space-y-8 shadow-2xl relative overflow-hidden text-center">
+          
           <button
             onClick={onBackToLanding}
-            className="px-3.5 py-1.5 border border-zinc-600 hover:bg-zinc-800 text-zinc-300 rounded font-sans text-xs uppercase font-medium transition cursor-pointer"
+            className="absolute top-4 left-4 p-2 text-slate-400 hover:text-white transition flex items-center gap-1.5 text-xs font-mono font-bold"
           >
-            Exit Workspace
+            ← Leave
           </button>
-        </div>
-      </header>
 
-      {/* Guest Mode Notification Bar */}
-      {!currentUser && !authLoading && (
-        <div className="bg-[#8B6B3F] text-white py-2.5 px-4 md:px-8 text-xs font-semibold flex flex-col md:flex-row items-center gap-3 justify-between shrink-0 shadow-inner">
-          <div className="flex items-center gap-2 text-center md:text-left">
-            <Sparkles className="w-4 h-4 shrink-0 animate-bounce" />
-            <span>Currently using Guest Sandbox workspace. Sign in with Google to enable real-time cloud backup, permanent sizing records, and synchronized employee accounts!</span>
+          {/* Artistic Scissors Illustration */}
+          <div className="pt-4 flex justify-center">
+            <div className="p-4 bg-slate-800/80 border border-[#D97706]/20 rounded-2xl shadow-inner relative flex items-center justify-center">
+              <Scissors className="w-12 h-12 text-[#D97706] animate-pulse" />
+              <div className="absolute -bottom-1 -right-1 p-1 bg-[#D97706] text-white text-[8px] font-mono font-bold rounded-lg uppercase tracking-wider">
+                V1.2
+              </div>
+            </div>
           </div>
-          <button 
-            onClick={handleGoogleSignIn}
-            className="px-3 py-1 bg-white hover:bg-brand-cream text-[#8B6B3F] rounded uppercase font-mono font-extrabold text-[10px] tracking-wide transition shadow shrink-0"
-          >
-            Authorize Backup Setup
-          </button>
+
+          <div className="space-y-2">
+            <h2 className="font-serif text-3xl font-extrabold tracking-tight text-[#F59E0B]">
+              Tailor Studio Manager
+            </h2>
+            <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
+              Welcome, Master Tailor. Access your personal offline-ready atelier suite to log customers, configure sizing booklets, and commission dockets.
+            </p>
+          </div>
+
+          <div className="space-y-3.5 pt-4">
+            <button
+              onClick={handleGoogleSignIn}
+              className="w-full py-3.5 bg-[#FCFAF5] hover:bg-[#FAF8ED] border border-zinc-200 hover:border-[#D97706]/40 text-slate-900 rounded-xl font-sans text-xs font-extrabold tracking-wider uppercase flex items-center justify-center gap-2.5 transition-all shadow-md cursor-pointer"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.9h6.6c-.28 1.5-1.11 2.76-2.39 3.62v3h3.86c2.26-2.09 3.56-5.14 3.56-8.52z"/>
+                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.12C3.26 21.36 7.37 24 12 24z"/>
+                <path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.59H1.29C.47 8.24 0 10.07 0 12s.47 3.76 1.29 5.41l3.98-3.12z"/>
+                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.26 2.64 1.29 6.59l3.98 3.12c.95-2.85 3.6-4.96 6.73-4.96z"/>
+              </svg>
+              <span>Synchronize via Google</span>
+            </button>
+
+            <div className="flex items-center justify-between text-[10px] font-mono text-zinc-600 px-2 py-1">
+              <span className="h-px bg-zinc-800 flex-1" />
+              <span className="px-3 uppercase">OR SECURE OFFLINE ACCESS</span>
+              <span className="h-px bg-zinc-800 flex-1" />
+            </div>
+
+            <button
+              onClick={handleGuestSignIn}
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 hover:text-white border border-slate-700 hover:border-[#D97706]/40 text-slate-300 rounded-xl font-sans text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>🍂 Enter Guest Sandbox (Offline)</span>
+            </button>
+          </div>
+
+          <div className="border-t border-zinc-800 pt-5 flex items-center justify-center gap-2 text-[10px] font-mono text-zinc-500">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>256-Bit Local Encryption Client Storage Verified</span>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ACTIVE INTERACTIVE PORTAL APP VIEW
+  return (
+    <div className="min-h-screen bg-[#FCFAF5] text-zinc-900 font-sans antialiased selection:bg-[#D97706] selection:text-white flex flex-col">
+      
+      {/* Dynamic Toast notifier */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[2000] px-5 py-3 bg-zinc-900 text-white text-xs font-mono font-bold rounded-lg shadow-xl flex items-center gap-3 border border-[#D97706]/30 animate-fadeIn">
+          <span className="w-2 h-2 rounded-full bg-[#D97706] animate-ping" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Desktop Workspace Grid */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      {/* Top Navbar */}
+      <header className="bg-[#0F172A] border-b border-[#D97706]/20 text-white sticky top-0 z-[500] px-4 py-3 sm:px-6 shadow-md no-print">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBackToLanding}
+              className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition mr-1"
+              title="Return to landing page"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="p-1.5 bg-[#1E293B] border border-[#D97706]/20 rounded-lg flex items-center justify-center">
+              {getShopLogoComponent()}
+            </div>
+            <div className="text-left">
+              <h1 className="font-serif font-black text-sm sm:text-base tracking-tight uppercase leading-none text-white">
+                {shopProfile.shopName || "Atelier Studio"}
+              </h1>
+              <span className="text-[10px] font-mono text-[#D97706] font-bold block mt-0.5 tracking-wider uppercase">
+                Artisanal Suite V1.2
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs font-mono">
+            {/* User credentials badge */}
+            <div className="hidden md:flex items-center gap-2.5 bg-[#1E293B] px-3.5 py-1.5 rounded-lg border border-[#D97706]/10 text-slate-300">
+              <User className="w-3.5 h-3.5 text-[#D97706]" />
+              <span className="font-bold truncate max-w-[120px]">{activeUser.displayName || "Artisan Tailor"}</span>
+              <span className="px-1.5 py-0.5 bg-slate-800 text-[#D97706] text-[9px] uppercase font-bold rounded">
+                {activeUser.isGuest ? "Guest" : "Synced"}
+              </span>
+            </div>
+
+            <button
+              onClick={handleSignOut}
+              className="px-3 py-2 bg-slate-800 hover:bg-[#D97706] hover:text-white text-slate-300 rounded-lg transition-all flex items-center gap-1.5 font-bold cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Workspace Frame */}
+      <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
         
-        {/* Left Side: Desktop Sidebar Navigation */}
-        <aside className="hidden md:flex w-64 bg-brand-cream border-r border-brand-gold/20 flex-col justify-between shrink-0">
-          <div className="p-6 space-y-6">
-            <span className="text-[10px] font-mono text-brand-gold font-bold uppercase tracking-widest block">
-              Workspace Nav
-            </span>
-
-            <nav className="space-y-1.5">
+        {/* Workspace navigation sub-menu */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-zinc-200 no-print">
+          {[
+            { id: "dashboard", label: "Dashboard overview" },
+            { id: "customers", label: "Client portfolios" },
+            { id: "orders", label: "Workflow Board" },
+            { id: "inventory", label: "Stock inventories" },
+            { id: "settings", label: "Studio settings" },
+          ].map((tab) => {
+            const isSelected = activeTab === tab.id;
+            return (
               <button
-                onClick={() => setActiveTab("customers")}
-                className={`w-full px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-3 transition cursor-pointer ${
-                  activeTab === "customers"
-                    ? "bg-brand-gold text-white shadow"
-                    : "text-brand-slate hover:bg-brand-eggshell"
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id as any);
+                  if (tab.id !== "customers") setSelectedCustomerId(null);
+                }}
+                className={`px-4.5 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                  isSelected 
+                    ? "bg-[#0F172A] text-white shadow-md border-b-2 border-[#D97706]" 
+                    : "text-zinc-500 hover:text-zinc-950 hover:bg-slate-100"
                 }`}
               >
-                <User className="w-4.5 h-4.5" />
-                <span>Customers & Sizing</span>
+                {tab.label}
               </button>
+            );
+          })}
+        </div>
 
-              <button
-                onClick={() => setActiveTab("workers")}
-                className={`w-full px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-3 transition cursor-pointer ${
-                  activeTab === "workers"
-                    ? "bg-brand-gold text-white shadow"
-                    : "text-brand-slate hover:bg-brand-eggshell"
-                }`}
-              >
-                <Users className="w-4.5 h-4.5" />
-                <span>Worker Wage Ledger</span>
-              </button>
+        {/* WORKSPACE SELECTION SWITCH ROUTER */}
+        <div className="flex-1 no-print">
+          {activeTab === "dashboard" && (
+            <DashboardStats
+              customers={customers}
+              orders={orders}
+              inventory={inventory}
+              shopProfile={shopProfile}
+              onNavigateTab={(tab) => {
+                setActiveTab(tab);
+                if (tab !== "customers") setSelectedCustomerId(null);
+              }}
+              onAddCustomerClick={() => {
+                setActiveTab("customers");
+                setSelectedCustomerId(null);
+              }}
+              onAddOrderClick={() => {
+                setPreSelectedCustomer(null);
+                setShowCommissionFormFromDashboard(true);
+                setActiveTab("orders");
+              }}
+              onViewOrder={(order) => {
+                setActiveInvoiceOrder(order);
+                setIsInvoiceOpen(true);
+              }}
+            />
+          )}
 
-              <button
-                onClick={() => setActiveTab("inventory")}
-                className={`w-full px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-3 transition cursor-pointer ${
-                  activeTab === "inventory"
-                    ? "bg-brand-gold text-white shadow"
-                    : "text-brand-slate hover:bg-brand-eggshell"
-                }`}
-              >
-                <ShoppingBag className="w-4.5 h-4.5" />
-                <span>Materials Inventory</span>
-              </button>
-            </nav>
-          </div>
-
-          {/* Quick instructions panel */}
-          <div className="p-6 border-t border-brand-gold/10 bg-brand-eggshell/50 text-xs text-brand-slate space-y-2">
-            <div className="flex items-center gap-1.5 font-bold text-brand-charcoal uppercase font-mono text-[9px] tracking-wide text-brand-gold">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Full-Stack Sovereignty</span>
-            </div>
-            <p className="leading-relaxed">This portal synchronizes your client charts directly using end-to-end encrypted Firestore listeners.</p>
-          </div>
-        </aside>
-
-        {/* Main Workspace Frame */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-[#FBF9F3]">
-          
-          {/* TAB 1: CUSTOMERS HUB */}
           {activeTab === "customers" && (
-            <div className="flex-1 flex flex-col xl:flex-row overflow-hidden animate-fadeIn">
-              
-              {/* Mobile customer sub-navigation */}
-              <div className="xl:hidden flex bg-white border-b border-zinc-150 py-2.5 px-4 justify-between items-center shrink-0">
-                <div className="flex gap-1.5 w-full">
-                  <button
-                    onClick={() => setCustomerSubTab("list")}
-                    className={`flex-1 py-2 px-2 rounded-md text-center font-sans font-bold text-[10px] uppercase transition cursor-pointer ${
-                      customerSubTab === "list"
-                        ? "bg-brand-gold text-white shadow-sm"
-                        : "bg-zinc-100 text-zinc-650 hover:bg-zinc-200"
-                    }`}
-                  >
-                    Client List
-                  </button>
-                  <button
-                    onClick={() => setCustomerSubTab("form")}
-                    className={`flex-1 py-2 px-2 rounded-md text-center font-sans font-bold text-[10px] uppercase transition cursor-pointer ${
-                      customerSubTab === "form"
-                        ? "bg-brand-gold text-white shadow-sm"
-                        : "bg-zinc-100 text-zinc-650 hover:bg-zinc-200"
-                    }`}
-                  >
-                    Sizing Form
-                  </button>
-                  <button
-                    onClick={() => setCustomerSubTab("ticket")}
-                    className={`flex-1 py-2 px-2 rounded-md text-center font-sans font-bold text-[10px] uppercase transition cursor-pointer ${
-                      customerSubTab === "ticket"
-                        ? "bg-brand-gold text-white shadow-sm"
-                        : "bg-zinc-100 text-zinc-650 hover:bg-zinc-200"
-                    }`}
-                  >
-                    Ticket Preview
-                  </button>
-                </div>
-              </div>
-
-              {/* Customer Left Column - Directory List */}
-              <div className={`w-full xl:w-80 bg-white border-r border-zinc-150 flex-col shrink-0 ${customerSubTab === "list" ? "flex flex-1 xl:flex-initial" : "hidden xl:flex"}`}>
-                
-                {/* Search Bar */}
-                <div className="p-4 border-b border-zinc-100 space-y-3">
-                  <div className="relative">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                    <input 
-                      type="text" 
-                      placeholder="Search bespoke records..."
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2.5 bg-brand-eggshell/60 border border-zinc-200 rounded-full text-xs outline-none focus:ring-1 focus:ring-brand-gold"
-                    />
-                  </div>
-                  <div className="flex justify-between items-center text-[10px] font-mono text-zinc-500 font-bold">
-                    <span>BESPOKE CLIENTS</span>
-                    <span className="bg-brand-eggshell px-2 py-0.5 rounded text-brand-charcoal">{filteredCustomers.length} Records</span>
-                  </div>
-                </div>
-
-                {/* Directory list list */}
-                <div className="flex-1 overflow-y-auto divide-y divide-zinc-50">
-                  {filteredCustomers.length === 0 ? (
-                    <div className="p-8 text-center text-zinc-400 text-xs">
-                      No customer records found.
-                    </div>
-                  ) : (
-                    filteredCustomers.map((cust) => (
-                      <div 
-                        key={cust.id}
-                        onClick={() => {
-                          setSelectedCustomer(cust);
-                          resetCustomerFormFields(cust);
-                          setCustomerSubTab("form");
-                        }}
-                        className={`p-4 text-left cursor-pointer transition flex items-center justify-between ${
-                          selectedCustomer?.id === cust.id 
-                            ? "bg-brand-eggshell border-l-4 border-brand-gold font-semibold" 
-                            : "hover:bg-zinc-50"
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-xs font-bold text-zinc-800 truncate">{cust.name}</h4>
-                          <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">📞 {cust.phone}</span>
-                          <span className="inline-block mt-1 text-[9px] bg-brand-moss/10 text-brand-moss font-bold px-1.5 py-0.2 rounded font-mono">
-                            {(SIZING_TEMPLATES.find(t => t.id === cust.templateId)?.name || "Suit").split(" ")[0]}
-                          </span>
-                        </div>
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteCustomer(cust.id);
-                          }}
-                          className="p-1 hover:text-red-600 hover:bg-zinc-100 rounded text-zinc-400 transition"
-                          title="Delete Record"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Create New Button */}
-                <div className="p-4 bg-brand-cream border-t border-brand-gold/15 shrink-0">
-                  <button
-                    onClick={() => {
-                      resetCustomerFormFields();
-                      setCustomerSubTab("form");
-                    }}
-                    className="w-full py-2.5 bg-[#8B6B3F] hover:bg-[#1B1A18] text-white rounded font-sans text-xs tracking-wider uppercase font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Create Sizing Chart</span>
-                  </button>
-                </div>
-
-              </div>
-
-              {/* Customer Middle Column - Interactive Editor Form */}
-              <div className={`flex-1 overflow-y-auto p-4 md:p-8 border-r border-zinc-150 ${customerSubTab === "form" ? "block" : "hidden xl:block"}`}>
-                <div className="max-w-2xl mx-auto space-y-6">
-                  
-                  <div className="text-left">
-                    <span className="text-[10px] font-mono text-brand-gold font-bold uppercase tracking-wider block mb-1">
-                      {isEditingCust ? "❖ EDIT ACTIVE CLIENT SPECIFICATIONS" : "❖ NEW BESPOKE CLIENT SPECIFICATIONS"}
-                    </span>
-                    <h2 className="font-serif text-2xl font-bold text-brand-charcoal">
-                      {isEditingCust ? `Modify: ${editCustName}` : "Register New Client Chart"}
-                    </h2>
-                    <p className="text-xs text-brand-slate mt-1">
-                      Complete custom sizing details. Changes will synchronize with Firestore database records automatically.
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleSaveCustomer} className="space-y-6 text-left">
-                    {/* Basic Info Rows */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-mono font-bold text-brand-charcoal mb-1.5">CLIENT FULL NAME</label>
-                        <input 
-                          type="text" 
-                          required
-                          value={editCustName}
-                          onChange={(e) => setEditCustName(e.target.value)}
-                          placeholder="e.g. Duke Henry Stuart"
-                          className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded text-xs outline-none focus:ring-1 focus:ring-brand-gold shadow-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-mono font-bold text-brand-charcoal mb-1.5">CONTACT PHONE</label>
-                        <input 
-                          type="text" 
-                          required
-                          value={editCustPhone}
-                          onChange={(e) => setEditCustPhone(e.target.value)}
-                          placeholder="e.g. +44 7700 900077"
-                          className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded text-xs outline-none focus:ring-1 focus:ring-brand-gold shadow-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-mono font-bold text-brand-charcoal mb-1.5">SHIPPING / ATELIER ADDRESS</label>
-                      <input 
-                        type="text" 
-                        value={editCustAddress}
-                        onChange={(e) => setEditCustAddress(e.target.value)}
-                        placeholder="e.g. 10 Savile Row, Mayfair, London"
-                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded text-xs outline-none focus:ring-1 focus:ring-brand-gold shadow-sm"
-                      />
-                    </div>
-
-                    {/* Template Choice */}
-                    <div>
-                      <label className="block text-[10px] font-mono font-bold text-brand-gold mb-2.5">SELECT APPAREL BLUEPRINT DESIGN</label>
-                      <div className="grid grid-cols-4 gap-2">
-                        {SIZING_TEMPLATES.map((tpl) => (
-                          <button
-                            key={tpl.id}
-                            type="button"
-                            onClick={() => handleTemplateChange(tpl.id)}
-                            className={`py-2 px-1 text-xs font-bold text-center border rounded transition cursor-pointer ${
-                              editCustTemplateId === tpl.id 
-                                ? "bg-brand-gold text-white border-brand-gold shadow-sm" 
-                                : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"
-                            }`}
-                          >
-                            <span className="block truncate">{tpl.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Sizing Parameters Grid (Numeric parameters) */}
-                    <div className="border-t border-brand-gold/15 pt-5">
-                      <span className="text-[10px] font-mono font-bold text-brand-charcoal block mb-3.5 uppercase">
-                        📏 SIZING PARAMETERS & VALUES (INCHES ″)
-                      </span>
-                      
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 bg-brand-eggshell/30 p-4 border rounded-xl">
-                        {activeTemplate.fields.map((field) => (
-                          <div key={field.name} className="flex items-center justify-between border-b border-dashed border-zinc-200 pb-1.5">
-                            <span className="text-xs text-zinc-600 truncate max-w-[120px]" title={field.label}>
-                              {field.label.split('(')[0]}
-                            </span>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <input 
-                                type="text" 
-                                value={editCustSizes[field.name] || ""}
-                                onChange={(e) => handleSizeInputChange(field.name, e.target.value)}
-                                className="w-16 px-1.5 py-1 text-center font-mono font-bold bg-white border rounded text-xs focus:ring-1 focus:ring-brand-gold outline-none"
-                              />
-                              <span className="text-[10px] text-zinc-400 font-mono">″</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Form submission */}
-                    <div className="pt-2 flex items-center gap-3 justify-end">
-                      {isEditingCust && (
-                        <button
-                          type="button"
-                          onClick={() => resetCustomerFormFields()}
-                          className="px-4 py-2 border border-zinc-300 text-zinc-600 hover:bg-zinc-50 rounded text-xs font-semibold uppercase cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                      <button
-                        type="submit"
-                        className="px-6 py-3 bg-[#4F5D2F] hover:bg-[#3d4924] text-white rounded font-sans text-xs tracking-wider uppercase font-bold flex items-center gap-1.5 shadow cursor-pointer"
-                      >
-                        <Save className="w-4 h-4" />
-                        <span>{isEditingCust ? "Save Synced Changes" : "Register Sizing Profile"}</span>
-                      </button>
-                    </div>
-
-                  </form>
-                </div>
-              </div>
-
-              {/* Customer Right Column - Retro Golden-Bordered Ticket Preview */}
-              <div className={`w-full xl:w-96 bg-brand-cream/40 p-4 md:p-6 flex-col justify-start overflow-y-auto shrink-0 ${customerSubTab === "ticket" ? "flex flex-1 xl:flex-initial" : "hidden xl:flex"}`}>
-                <span className="text-[10px] font-mono font-bold text-brand-gold tracking-widest block mb-4 uppercase text-center">
-                  ⚡ CUSTOMER TICKET PREVIEW
-                </span>
-
-                {/* Classic Gilded Ticket Frame */}
-                {selectedCustomer ? (
-                  <div className="space-y-6">
-                    <div className="bg-white border-2 border-brand-gold p-6 rounded-lg shadow-lg relative paper-grain text-left">
-                      {/* Ticket tear cutout layout */}
-                      <div className="absolute top-0 inset-x-0 h-1.5 flex justify-around overflow-hidden">
-                        {Array.from({ length: 15 }).map((_, i) => (
-                          <div key={i} className="w-3.5 h-3.5 bg-brand-cream rounded-full -translate-y-2.5"></div>
-                        ))}
-                      </div>
-
-                      {/* Header details */}
-                      <div className="text-center mt-3 pt-3">
-                        <h3 className="font-serif text-xl font-extrabold tracking-wider text-brand-charcoal uppercase">
-                          TAILORSHOPMANAGER
-                        </h3>
-                        <p className="font-mono text-[9.5px] text-brand-gold tracking-widest uppercase">
-                          Master Sizing Record Sheet
-                        </p>
-                        <div className="border-y border-dashed border-zinc-200 my-3 py-1 text-[9px] font-mono flex justify-between px-2 text-zinc-500">
-                          <span>EST. 2026</span>
-                          <span>{syncStatus === "connected" ? "CLOUDFIRESTORE" : "LOCAL SANDBOX"}</span>
-                          <span>CODE: #TSM-{selectedCustomer.id.slice(-4).toUpperCase()}</span>
-                        </div>
-                      </div>
-
-                      {/* Client Details Box */}
-                      <div className="bg-zinc-50 p-3.5 border border-zinc-150 rounded text-xs font-mono mb-4">
-                        <span className="text-[9px] text-brand-slate uppercase font-sans font-bold block mb-1">CLIENT IDENTITY:</span>
-                        <div className="text-zinc-900 font-bold text-sm">{selectedCustomer.name}</div>
-                        <div className="text-zinc-600 mt-1">Contact: {selectedCustomer.phone}</div>
-                        <div className="text-zinc-500 mt-0.5 truncate" title={selectedCustomer.address}>Address: {selectedCustomer.address}</div>
-                      </div>
-
-                      {/* Dimensions Specs */}
-                      <div>
-                        <span className="text-[10px] text-brand-gold font-bold font-serif italic mb-2 block border-b pb-1">
-                          {(SIZING_TEMPLATES.find(t => t.id === selectedCustomer.templateId)?.name || "Apparel")} Blueprint Dimensions:
-                        </span>
-
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 font-mono text-xs">
-                          {Object.entries(selectedCustomer.customSizes).map(([key, val]) => {
-                            const lbl = SIZING_TEMPLATES.find(t => t.id === selectedCustomer.templateId)?.fields.find(f => f.name === key)?.label || key;
-                            return (
-                              <div key={key} className="flex justify-between border-b border-dashed border-zinc-100 pb-0.5">
-                                <span className="text-zinc-500 truncate max-w-[110px]">{lbl.split('(')[0]}</span>
-                                <span className="font-bold text-brand-gold text-right shrink-0">
-                                  {val}″
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Verification seals */}
-                      <div className="border-t border-dashed border-zinc-300 mt-4 pt-3.5">
-                        <div className="flex items-center justify-between font-mono text-[9px] text-[#4F5D2F] font-bold bg-[#4F5D2F]/5 p-2 rounded border border-[#4F5D2F]/20">
-                          <span className="flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 bg-[#4F5D2F] rounded-full inline-block animate-pulse"></span>
-                            AUTHENTICATED SPECIFICATION
-                          </span>
-                          <span>MASTER COPE</span>
-                        </div>
-                      </div>
-
-                    </div>
-
-                    {/* Printer action buttons */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => {
-                          setIsPrinted(true);
-                          setTimeout(() => setIsPrinted(false), 2000);
-                        }}
-                        className="py-2.5 bg-brand-gold hover:bg-brand-gold-light text-white rounded font-sans text-xs tracking-wider uppercase font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-                      >
-                        {isPrinted ? <Check className="w-4 h-4 animate-scaleIn" /> : <Printer className="w-4 h-4" />}
-                        <span>{isPrinted ? "Sent to Printer!" : "Print Ticket"}</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsShared(true);
-                          setTimeout(() => setIsShared(false), 2000);
-                        }}
-                        className="py-2.5 border-2 border-brand-gold hover:bg-brand-gold/10 text-brand-gold rounded font-sans text-xs tracking-wider uppercase font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-                      >
-                        {isShared ? <Check className="w-4 h-4 animate-scaleIn" /> : <Share2 className="w-4 h-4" />}
-                        <span>{isShared ? "Shared with Client!" : "Share Chart"}</span>
-                      </button>
-                    </div>
-
-                    {/* Quick Tips */}
-                    <div className="p-4 border border-zinc-200 bg-white rounded-lg text-xs text-zinc-500 text-left">
-                      <span className="font-bold block mb-1 text-zinc-700">Workshop Tip:</span>
-                      Keep this sizing chart open during fabric tailoring. You can print physical copies of these master tickets directly to layout thermal ticket receipt slips!
-                    </div>
-
-                  </div>
-                ) : (
-                  <div className="p-8 text-center bg-white border rounded border-dashed text-zinc-400 text-xs">
-                    Please select or register a customer to view ticket parameters.
-                  </div>
-                )}
-
-              </div>
-
-            </div>
+            <CustomerWorkspace
+              customers={customers}
+              orders={orders}
+              shopProfile={shopProfile}
+              inventory={inventory}
+              onUpdateStock={handleUpdateStock}
+              selectedCustomerId={selectedCustomerId}
+              onSelectCustomer={setSelectedCustomerId}
+              onAddCustomer={handleAddCustomer}
+              onDeleteCustomer={handleDeleteCustomer}
+              onUpdateCustomerDetails={handleUpdateCustomerDetails}
+              onAddSizingCard={handleAddSizingCard}
+              onDeleteSizingCard={handleDeleteSizingCard}
+              sizingTemplates={sizingTemplates}
+              onAddSizingTemplate={handleAddSizingTemplate}
+              onDeleteSizingTemplate={handleDeleteSizingTemplate}
+              onAddOrder={handleAddOrder}
+              onAddOrderClick={(customer) => {
+                setPreSelectedCustomer(customer);
+                setShowCommissionFormFromDashboard(true);
+                setActiveTab("orders");
+              }}
+              onViewOrder={(order) => {
+                setActiveInvoiceOrder(order);
+                setIsInvoiceOpen(true);
+              }}
+            />
           )}
 
-          {/* TAB 2: WORKERS LEDGER */}
-          {activeTab === "workers" && (
-            <div className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto animate-fadeIn text-left">
-              <div className="max-w-5xl mx-auto w-full space-y-8">
-                
-                {/* Intro section */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-gold/20 pb-4">
-                  <div>
-                    <span className="text-[10px] font-mono text-brand-gold font-bold uppercase tracking-wider block mb-1">
-                      ❖ ATELIER STAFF WAGES & COMISSIONS
-                    </span>
-                    <h2 className="font-serif text-3xl font-bold text-brand-charcoal">
-                      Proprietor Wage Ledger System
-                    </h2>
-                    <p className="text-xs text-brand-slate mt-1">
-                      Manage tailors, pattern cutters, and seamstresses under traditional piece-rate metrics. Track wages accumulated per piece-work and dispatch payouts.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-zinc-500">Unpaid Liabilities:</span>
-                    <span className="bg-brand-gold text-brand-cream font-mono font-bold px-3 py-1 rounded text-sm shadow">
-                      ${workers.reduce((acc, w) => acc + w.unpaidWages, 0)} Total
-                    </span>
-                  </div>
-                </div>
-
-                {/* Split layout: Workers directory + Add form + Task logger */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                  
-                  {/* Left: Workers List and Register Form (lg:col-span-7) */}
-                  <div className="lg:col-span-7 space-y-6">
-                    
-                    <div className="bg-white border rounded-xl p-6 shadow-sm space-y-4">
-                      <h3 className="font-serif text-lg font-bold text-brand-charcoal flex items-center gap-2">
-                        <Users className="w-5 h-5 text-brand-gold" />
-                        <span>Registered Staff Directory</span>
-                      </h3>
-
-                      <div className="divide-y divide-zinc-100">
-                        {workers.length === 0 ? (
-                          <div className="py-6 text-center text-zinc-400 text-xs">
-                            No tailors registered. Add staff members below.
-                          </div>
-                        ) : (
-                          workers.map((work) => (
-                            <div key={work.id} className="py-3.5 flex items-center justify-between text-xs">
-                              <div>
-                                <h4 className="font-bold text-zinc-800 text-sm">{work.name}</h4>
-                                <span className="text-[10px] text-zinc-400 block mt-0.5">{work.role} • {work.completedCount} garments made</span>
-                              </div>
-                              <div className="flex items-center gap-4 text-right shrink-0">
-                                <div>
-                                  <span className="block text-[8px] text-zinc-400 font-mono font-bold uppercase">UNPAID WAGES</span>
-                                  <span className={`font-mono font-bold text-sm ${work.unpaidWages > 0 ? "text-brand-gold" : "text-brand-moss"}`}>
-                                    ${work.unpaidWages}
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => handlePayoutWorker(work.id)}
-                                  disabled={work.unpaidWages === 0}
-                                  className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition border ${
-                                    work.unpaidWages > 0
-                                      ? "bg-[#4F5D2F]/15 border-[#4F5D2F]/30 text-[#4F5D2F] hover:bg-[#4F5D2F]/25 cursor-pointer"
-                                      : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed"
-                                  }`}
-                                >
-                                  Disburse Cash
-                                </button>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Add Staff form */}
-                    <div className="bg-white border rounded-xl p-6 shadow-sm">
-                      <h3 className="font-serif text-base font-bold text-brand-charcoal mb-4 flex items-center gap-2">
-                        <Plus className="w-4 h-4 text-brand-gold" />
-                        <span>Register Seamstress or Tailor Artisan</span>
-                      </h3>
-
-                      <form onSubmit={handleRegisterWorker} className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                        <div className="sm:col-span-2">
-                          <label className="block text-[9px] font-mono text-zinc-500 mb-1 uppercase">ARTISAN NAME</label>
-                          <input 
-                            type="text" 
-                            required
-                            value={newWorkerName}
-                            onChange={(e) => setNewWorkerName(e.target.value)}
-                            placeholder="e.g. Master Clara Jenkins"
-                            className="w-full px-3 py-2 border rounded focus:ring-1 focus:ring-brand-gold outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-mono text-zinc-500 mb-1 uppercase">ROLE / SPECIALTY</label>
-                          <select
-                            value={newWorkerRole}
-                            onChange={(e) => setNewWorkerRole(e.target.value)}
-                            className="w-full px-3 py-2 border rounded focus:ring-1 focus:ring-brand-gold outline-none bg-white"
-                          >
-                            <option value="Master Pattern Cutter">Pattern Cutter</option>
-                            <option value="Coat & Jacket Specialist">Coat & Jacket Specialist</option>
-                            <option value="Button & Lapel Artisan">Button & Lapel Artisan</option>
-                            <option value="Master Tailor">Master Tailor</option>
-                          </select>
-                        </div>
-                        <div className="sm:col-span-3 flex justify-end">
-                          <button
-                            type="submit"
-                            className="px-5 py-2 bg-brand-charcoal hover:bg-brand-slate text-white rounded font-bold uppercase text-[10px] tracking-wide cursor-pointer transition"
-                          >
-                            Register Artisan
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-
-                  </div>
-
-                  {/* Right: Task Logger Form & History Feed (lg:col-span-5) */}
-                  <div className="lg:col-span-5 space-y-6">
-                    
-                    {/* Log Piece-work form */}
-                    <div className="bg-brand-cream/60 border border-brand-gold/30 rounded-xl p-6 shadow-sm kraft-shadow">
-                      <h3 className="font-serif text-lg font-bold text-brand-charcoal mb-4 flex items-center gap-2">
-                        <ClipboardList className="w-5 h-5 text-brand-gold" />
-                        <span>Log Piece-Work Rate</span>
-                      </h3>
-
-                      <form onSubmit={handleLogPieceWork} className="space-y-4 text-xs">
-                        <div>
-                          <label className="block text-[9px] font-mono text-zinc-500 mb-1 uppercase">SELECT ACTIVE TAILOR</label>
-                          <select
-                            required
-                            value={selectedWorkerId}
-                            onChange={(e) => setSelectedWorkerId(e.target.value)}
-                            className="w-full p-2 border bg-white rounded outline-none focus:ring-1 focus:ring-brand-gold"
-                          >
-                            <option value="">-- Choose Artisan --</option>
-                            {workers.map(w => (
-                              <option key={w.id} value={w.id}>{w.name} ({w.role})</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[9px] font-mono text-zinc-500 mb-1 uppercase">GARMENT DETAIL TASK</label>
-                          <input 
-                            type="text" 
-                            required
-                            value={pieceTaskName}
-                            onChange={(e) => setPieceTaskName(e.target.value)}
-                            placeholder="e.g. Double Breasted Satin Stitching"
-                            className="w-full p-2 border rounded bg-white outline-none focus:ring-1 focus:ring-brand-gold"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[9px] font-mono text-zinc-500 mb-1 uppercase">WAGE PIECE-RATE AMOUNT ($)</label>
-                          <div className="flex gap-2">
-                            <input 
-                              type="number" 
-                              required
-                              value={pieceTaskWage}
-                              onChange={(e) => setPieceTaskWage(Number(e.target.value))}
-                              className="w-full p-2 border rounded bg-white font-mono outline-none focus:ring-1 focus:ring-brand-gold"
-                            />
-                            <button
-                              type="submit"
-                              className="px-5 bg-[#4F5D2F] hover:bg-[#3d4924] text-white rounded font-bold uppercase text-[10px] tracking-wide transition cursor-pointer shrink-0"
-                            >
-                              Log Rate
-                            </button>
-                          </div>
-                        </div>
-                      </form>
-                    </div>
-
-                    {/* Receipt payout slip simulator popup details */}
-                    {payoutSlip && (
-                      <div className="bg-[#4F5D2F]/5 border border-dashed border-[#4F5D2F]/40 p-4 rounded-xl text-xs text-[#4F5D2F] text-left relative animate-fadeIn shadow-xs">
-                        <button 
-                          onClick={() => setPayoutSlip(null)}
-                          className="absolute top-2 right-3 font-bold text-lg hover:text-brand-charcoal text-zinc-400"
-                        >
-                          ×
-                        </button>
-                        <div className="font-mono flex justify-between items-center mb-1 bg-[#4F5D2F]/10 px-2 py-0.5 rounded">
-                          <strong className="text-[9px] tracking-wide">✔ CASH PAYOUT VOUCHER COMPLETED</strong>
-                          <span className="text-[10px]">{payoutSlip.time}</span>
-                        </div>
-                        <p className="mt-1.5 leading-relaxed">
-                          Handed cash balance of <strong className="text-[#4F5D2F] font-bold font-mono">${payoutSlip.amount}</strong> to <strong className="font-bold">{payoutSlip.name}</strong>. The unpaid wage ledger is cleared. This event has been archived to the database records.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Logged task history list */}
-                    <div className="bg-white border rounded-xl p-5 shadow-sm">
-                      <span className="text-[10px] font-mono font-bold text-zinc-400 block mb-3 uppercase">Atelier Task Feed</span>
-                      
-                      <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
-                        {orders.length === 0 ? (
-                          <div className="text-center text-zinc-400 text-xs py-4">
-                            No logged transactions.
-                          </div>
-                        ) : (
-                          orders.map((ord) => (
-                            <div key={ord.id} className="text-xs flex items-start gap-2.5 bg-zinc-50 border p-2.5 rounded-lg border-zinc-150">
-                              <div className="w-6.5 h-6.5 rounded bg-brand-gold/10 text-brand-gold font-bold flex items-center justify-center font-serif text-[10px] shrink-0 mt-0.5">
-                                T
-                              </div>
-                              <div className="min-w-0 flex-1 text-left">
-                                <div className="flex justify-between items-baseline">
-                                  <span className="font-bold text-zinc-800 truncate">{ord.workerName}</span>
-                                  <span className="font-mono text-zinc-400 text-[8px] shrink-0">{ord.time}</span>
-                                </div>
-                                <p className="text-[10px] text-zinc-500 mt-0.5">{ord.task}</p>
-                                <span className="inline-block mt-1 font-mono font-extrabold text-[#4F5D2F] text-[10px]">+${ord.wage} Wage logged</span>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-            </div>
+          {activeTab === "orders" && (
+            <OrdersWorkspace
+              orders={orders}
+              customers={customers}
+              shopProfile={shopProfile}
+              sizingTemplates={sizingTemplates}
+              onAddOrder={handleAddOrder}
+              onUpdateOrderStatus={handleUpdateOrderStatus}
+              onViewOrder={(order) => {
+                setActiveInvoiceOrder(order);
+                setIsInvoiceOpen(true);
+              }}
+              onDeleteOrder={handleDeleteOrder}
+              showCommissionFormDefault={showCommissionFormFromDashboard}
+              preSelectedCustomerForOrder={preSelectedCustomer}
+              onCloseCommissionForm={() => {
+                setShowCommissionFormFromDashboard(false);
+                setPreSelectedCustomer(null);
+              }}
+            />
           )}
 
-          {/* TAB 3: INVENTORY HUB */}
           {activeTab === "inventory" && (
-            <div className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto animate-fadeIn text-left">
-              <div className="max-w-5xl mx-auto w-full space-y-8">
-                
-                {/* Intro header */}
-                <div className="border-b border-brand-gold/20 pb-4 flex flex-col md:flex-row md:items-center gap-4 justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono text-brand-gold font-bold uppercase tracking-wider block mb-1">
-                      ❖ FABRIC WAREHOUSE & STOCK CONTROLS
-                    </span>
-                    <h2 className="font-serif text-2xl md:text-3xl font-bold text-brand-charcoal">
-                      Atelier Fabric & Materials Directory
-                    </h2>
-                    <p className="text-xs text-brand-slate mt-1">
-                      Add premium yardages, track dynamic textile costs, and view potential profit targets based on your custom retail pricing structures.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Grid Metrics */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                  <div className="bg-white border p-4.5 rounded-xl shadow-xs">
-                    <span className="text-[10px] font-mono text-zinc-400 block uppercase font-bold">Fabrics Types</span>
-                    <h4 className="font-mono text-xl font-bold mt-1 text-brand-charcoal">{inventory.length} Registered</h4>
-                  </div>
-                  <div className="bg-white border p-4.5 rounded-xl shadow-xs">
-                    <span className="text-[10px] font-mono text-zinc-400 block uppercase font-bold">Total Yardage</span>
-                    <h4 className="font-mono text-xl font-bold mt-1 text-brand-charcoal">{totalYards} yds</h4>
-                  </div>
-                  <div className="bg-white border p-4.5 rounded-xl shadow-xs">
-                    <span className="text-[10px] font-mono text-zinc-400 block uppercase font-bold">Capital Invested</span>
-                    <h4 className="font-mono text-xl font-bold mt-1 text-brand-charcoal">${totalCostVal}</h4>
-                  </div>
-                  <div className="bg-brand-cream border-2 border-brand-gold p-4.5 rounded-xl shadow-xs relative overflow-hidden">
-                    <div className="absolute right-0 top-0 w-12 h-12 bg-brand-gold/10 rounded-bl-full pointer-events-none"></div>
-                    <span className="text-[10px] font-mono text-brand-gold block uppercase font-bold">Net Profit Potential</span>
-                    <h4 className="font-mono text-xl font-extrabold mt-1 text-brand-moss">${netProfitPotential}</h4>
-                  </div>
-                </div>
-
-                {/* Inventory Table and Register Form */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                  
-                  {/* Left: Materials Table List (lg:col-span-8) */}
-                  <div className="lg:col-span-8 bg-white border rounded-xl overflow-hidden shadow-sm">
-                    <div className="p-5 border-b border-zinc-100 flex justify-between items-center">
-                      <h3 className="font-serif font-bold text-base text-brand-charcoal">Fabric Warehouse Rolls</h3>
-                      <span className="text-[10px] font-mono bg-brand-eggshell text-brand-slate px-2.5 py-0.5 rounded font-bold uppercase">SECURED BACKUPS</span>
-                    </div>
-
-                    <div className="divide-y divide-zinc-100">
-                      {inventory.length === 0 ? (
-                        <div className="p-12 text-center text-zinc-400 text-xs">
-                          Your fabric rolls are empty. Add stock material roll parameters in the sidebar!
-                        </div>
-                      ) : (
-                        inventory.map((item) => (
-                          <div key={item.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-zinc-50/50 transition text-xs">
-                            <div className="min-w-0 flex-1 text-left w-full sm:w-auto">
-                              <h4 className="font-bold text-zinc-800 text-sm">{item.name}</h4>
-                              <span className="text-[10px] text-zinc-400 block mt-0.5">Rolled under yardage specifications • Unit: {item.unitType}</span>
-                              
-                              {/* Stock visualizer */}
-                              <div className="w-full sm:w-48 bg-zinc-100 rounded-full h-1.5 overflow-hidden mt-2 border">
-                                <div 
-                                  className="bg-brand-moss h-full"
-                                  style={{ width: `${Math.min(item.stock, 100)}%` }}
-                                ></div>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-4 sm:gap-6 font-mono text-center sm:mx-6 text-[11px] bg-zinc-50 sm:bg-transparent p-2 sm:p-0 rounded border sm:border-0 border-zinc-100 w-full sm:w-auto">
-                              <div>
-                                <span className="block text-[8px] text-zinc-400 font-sans uppercase">COST</span>
-                                ${item.cost}
-                              </div>
-                              <div>
-                                <span className="block text-[8px] text-zinc-400 font-sans uppercase">RETAIL</span>
-                                ${item.price}
-                              </div>
-                              <div className="text-right text-[#4F5D2F] font-bold">
-                                <span className="block text-[8px] text-zinc-400 font-sans uppercase">PROFIT</span>
-                                +${item.price - item.cost}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto shrink-0">
-                              <span className="font-mono bg-brand-eggshell text-brand-charcoal font-bold px-2.5 py-1 rounded border text-[11px]">
-                                {item.stock} yds
-                              </span>
-                              <button
-                                onClick={() => handleDeleteInventory(item.id)}
-                                className="p-1.5 hover:text-red-600 hover:bg-zinc-100 rounded text-zinc-400 transition cursor-pointer"
-                                title="Remove Roll"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right: Add Fabric Form (lg:col-span-4) */}
-                  <div className="lg:col-span-4 bg-white border rounded-xl p-6 shadow-sm">
-                    <h3 className="font-serif text-base font-bold text-brand-charcoal mb-4 flex items-center gap-1.5">
-                      <Plus className="w-4.5 h-4.5 text-brand-gold" />
-                      <span>Register Fabric Roll</span>
-                    </h3>
-
-                    <form onSubmit={handleAddFabric} className="space-y-4 text-xs">
-                      <div>
-                        <label className="block text-[9px] font-mono text-zinc-500 mb-1 uppercase">FABRIC ROLL BRAND / COLOR</label>
-                        <input 
-                          type="text" 
-                          required
-                          value={newFabricName}
-                          onChange={(e) => setNewFabricName(e.target.value)}
-                          placeholder="e.g. Scabal Tweed (Midnight Blue)"
-                          className="w-full px-3 py-2 border rounded focus:ring-1 focus:ring-brand-gold bg-white outline-none"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[9px] font-mono text-zinc-500 mb-1 uppercase">MEASURE UNIT</label>
-                          <input 
-                            type="text" 
-                            required
-                            value={newFabricUnit}
-                            onChange={(e) => setNewFabricUnit(e.target.value)}
-                            className="w-full px-3 py-2 border rounded focus:ring-1 focus:ring-brand-gold bg-white outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-mono text-zinc-500 mb-1 uppercase">STOCK QTY</label>
-                          <input 
-                            type="number" 
-                            required
-                            value={newFabricStock}
-                            onChange={(e) => setNewFabricStock(Number(e.target.value))}
-                            className="w-full px-3 py-2 border rounded focus:ring-1 focus:ring-brand-gold bg-white font-mono outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 border-t pt-3 border-dashed">
-                        <div>
-                          <label className="block text-[9px] font-mono text-zinc-500 mb-1 uppercase">COST PER YARD ($)</label>
-                          <input 
-                            type="number" 
-                            required
-                            value={newFabricCost}
-                            onChange={(e) => setNewFabricCost(Number(e.target.value))}
-                            className="w-full px-3 py-2 border rounded focus:ring-1 focus:ring-brand-gold bg-white font-mono outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-mono text-zinc-500 mb-1 uppercase">RETAIL PRICE ($)</label>
-                          <input 
-                            type="number" 
-                            required
-                            value={newFabricPrice}
-                            onChange={(e) => setNewFabricPrice(Number(e.target.value))}
-                            className="w-full px-3 py-2 border rounded focus:ring-1 focus:ring-brand-gold bg-white font-mono outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        type="submit"
-                        className="w-full py-2.5 bg-brand-gold hover:bg-brand-gold-light text-white rounded font-sans text-xs tracking-wider uppercase font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-                      >
-                        <Save className="w-4 h-4" />
-                        <span>Add Roll to Warehouse</span>
-                      </button>
-                    </form>
-                  </div>
-
-                </div>
-
-              </div>
-            </div>
+            <InventoryWorkspace
+              inventory={inventory}
+              shopProfile={shopProfile}
+              onAddItem={handleAddItem}
+              onUpdateStock={handleUpdateStock}
+              onDeleteItem={handleDeleteItem}
+            />
           )}
 
-        </main>
+          {activeTab === "settings" && (
+            <SettingsWorkspace
+              shopProfile={shopProfile}
+              onUpdateShopProfile={setShopProfile}
+              customers={customers}
+              orders={orders}
+              inventory={inventory}
+              onRestoreBackup={handleRestoreBackup}
+              triggerToast={triggerToast}
+            />
+          )}
+        </div>
 
       </div>
 
-      {/* Mobile Bottom Navigation Bar */}
-      <div className="md:hidden flex border-t border-brand-gold/15 bg-brand-cream justify-around py-2.5 shrink-0 z-10 shadow-lg">
-        <button
-          onClick={() => setActiveTab("customers")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 text-[10px] font-bold uppercase transition cursor-pointer ${
-            activeTab === "customers" ? "text-brand-gold" : "text-brand-slate"
-          }`}
-        >
-          <User className="w-5 h-5" />
-          <span>Clients</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("workers")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 text-[10px] font-bold uppercase transition cursor-pointer ${
-            activeTab === "workers" ? "text-brand-gold" : "text-brand-slate"
-          }`}
-        >
-          <Users className="w-5 h-5" />
-          <span>Wages</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("inventory")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 text-[10px] font-bold uppercase transition cursor-pointer ${
-            activeTab === "inventory" ? "text-brand-gold" : "text-brand-slate"
-          }`}
-        >
-          <ShoppingBag className="w-5 h-5" />
-          <span>Stock</span>
-        </button>
-      </div>
+      {/* MODAL WINDOW: PRINTER-FRIENDLY INVOICE DOCKETS */}
+      {isInvoiceOpen && activeInvoiceOrder && (
+        <InvoiceModal
+          isOpen={isInvoiceOpen}
+          onClose={() => {
+            setIsInvoiceOpen(false);
+            setActiveInvoiceOrder(null);
+          }}
+          order={activeInvoiceOrder}
+          customer={customers.find(c => c.id === activeInvoiceOrder.customerId) || null}
+          shopProfile={shopProfile}
+        />
+      )}
+
+      {/* FOOTER */}
+      <footer className="py-6 border-t border-zinc-200 text-center text-[10px] font-mono text-zinc-400 bg-white no-print mt-auto">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+          <span>© 2026 Golden Shears Atelier OS. All local data is cached securely.</span>
+          <span>Security Certified Client Client Session Safe</span>
+        </div>
+      </footer>
 
     </div>
   );

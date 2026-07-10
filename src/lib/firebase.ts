@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 // Your provided Firebase web app configuration
 const firebaseConfig = {
@@ -16,7 +16,14 @@ const firebaseConfig = {
 // Prevent duplicate initialization in dev HMR environment
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(firebaseApp);
-export const db = getFirestore(firebaseApp);
+
+// Enable robust, multi-tab offline cache persistence
+export const db = initializeFirestore(firebaseApp, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
+});
+
 export const googleProvider = new GoogleAuthProvider();
 
 export { signInWithPopup, signOut };
