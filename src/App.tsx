@@ -6,13 +6,12 @@ import PrivacyPolicy from "./components/PrivacyPolicy";
 import ContactUs from "./components/ContactUs";
 import Footer from "./components/Footer";
 import InteractiveDevice from "./components/InteractiveDevice";
-import DesktopApp from "./components/DesktopApp";
 import PrivacyPage from "./components/PrivacyPage";
 import DeleteAccountPage from "./components/DeleteAccountPage";
 import { Scissors, ShieldCheck, Download, Smartphone, Star, ArrowRight, X, Check } from "lucide-react";
 
 export default function App() {
-  const [view, setView] = useState<"landing" | "desktop" | "privacy" | "delete-account">("landing");
+  const [view, setView] = useState<"landing" | "privacy" | "delete-account">("landing");
   const [activeSection, setActiveSection] = useState("home");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -47,14 +46,6 @@ export default function App() {
   }, [view]);
 
   // Main Conditional View Routing
-  if (view === "desktop") {
-    return (
-      <div className="animate-fadeIn">
-        <DesktopApp onBackToLanding={() => setView("landing")} />
-      </div>
-    );
-  }
-
   if (view === "privacy") {
     return (
       <div className="animate-fadeIn">
@@ -90,7 +81,6 @@ export default function App() {
         activeSection={activeSection} 
         onNavigate={handleNavigate} 
         onInstallClick={handleApkDownload} 
-        onDesktopPortalClick={() => setView("desktop")} 
       />
 
       {/* HERO SECTION */}
@@ -116,19 +106,11 @@ export default function App() {
               {/* CTA Actions */}
               <div className="flex flex-wrap gap-4 items-center mb-8">
                 <button
-                  onClick={() => setView("desktop")}
+                  onClick={handleApkDownload}
                   className="px-6 py-3.5 bg-brand-charcoal hover:bg-brand-gold text-brand-cream border border-brand-gold rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 shadow-md cursor-pointer"
                 >
-                  <span>💻 Enter Desktop Portal</span>
-                  <ArrowRight className="w-4 h-4 text-brand-gold" />
-                </button>
-                
-                <button
-                  onClick={handleApkDownload}
-                  className="px-6 py-3.5 bg-brand-gold hover:bg-brand-charcoal hover:text-brand-cream text-[#FCFAF2] rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 shadow-sm cursor-pointer"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download APK</span>
+                  <Download className="w-4 h-4 text-brand-gold" />
+                  <span>Download Android APK (v1.2)</span>
                 </button>
               </div>
               
