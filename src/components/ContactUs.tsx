@@ -219,7 +219,7 @@ export default function ContactUs() {
                   ⚡ INSTANT DEPLOYMENT
                 </h4>
                 <p className="text-[11px] text-brand-slate leading-normal">
-                  The Android APK is fully offline-first. To start using TailorShopManager in your shop, simply click "Download APK", install on your device, and configure your first sizing registry template in 30 seconds.
+                  The Android app is fully offline-first. To start using TailorShopManager in your shop, simply click "Get on Google Play", install on your device, and configure your first sizing registry template in 30 seconds.
                 </p>
               </div>
 

@@ -23,8 +23,10 @@ export default function App() {
     }, 3500);
   };
 
+  const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.tailorshopmanager.tsm";
+
   const handleApkDownload = () => {
-    triggerToast("📥 Simulated download: TailorShopManager_v1.2_Bespoke.apk (32.4 MB) initialized!");
+    window.open(PLAY_STORE_URL, "_blank", "noopener,noreferrer");
   };
 
   const handleNavigate = (sectionId: string) => {
@@ -105,13 +107,15 @@ export default function App() {
               
               {/* CTA Actions */}
               <div className="flex flex-wrap gap-4 items-center mb-8">
-                <button
-                  onClick={handleApkDownload}
-                  className="px-6 py-3.5 bg-brand-charcoal hover:bg-brand-gold text-brand-cream border border-brand-gold rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 shadow-md cursor-pointer"
+                <a
+                  href={PLAY_STORE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-6 py-3.5 bg-brand-charcoal hover:bg-brand-gold text-brand-cream border border-brand-gold rounded font-sans text-xs tracking-wider uppercase font-extrabold flex items-center justify-center gap-2 transition-all duration-300 shadow-md cursor-pointer no-underline"
                 >
                   <Download className="w-4 h-4 text-brand-gold" />
-                  <span>Download Android APK (v1.2)</span>
-                </button>
+                  <span>Get App on Google Play</span>
+                </a>
               </div>
               
               {/* Trust signals */}
